@@ -68,7 +68,7 @@ export default function LoginPage() {
                 <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
                     <FileText className="h-5 w-5 text-white" />
                 </div>
-                <span className="text-xl font-bold text-white tracking-tight">Enterprise DMS</span>
+                <span className="text-xl font-bold text-white tracking-tight">FREMA</span>
             </div>
 
             <Card className="w-full max-w-md mx-4 z-10 border-slate-800 bg-slate-950/50 backdrop-blur-xl text-slate-100 shadow-2xl">

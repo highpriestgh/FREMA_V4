@@ -57,7 +57,7 @@ export function Sidebar({ isCollapsed }: SidebarProps) {
         <FileText className="h-6 w-6 text-blue-400 flex-shrink-0" />
         {!isCollapsed && (
           <span className="ml-2 text-lg font-bold tracking-tight animate-in fade-in duration-300 whitespace-nowrap">
-            Enterprise DMS
+            FREMA
           </span>
         )}
       </div>
