@@ -24,7 +24,7 @@ import { useState } from "react";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Documents", href: "/documents", icon: FolderOpen },
+  { name: "File Manager", href: "/documents", icon: FolderOpen },
   { name: "Inbox", href: "/inbox", icon: Bell },
   { name: "Reports", href: "/reports", icon: BarChart3 },
 ];
@@ -46,7 +46,7 @@ export function Sidebar({ isCollapsed }: SidebarProps) {
 
   return (
     <div className={cn(
-      "flex h-full min-h-screen flex-col border-r bg-slate-900 text-white transition-all duration-300",
+      "flex h-full min-h-screen flex-col border-r bg-gradient-to-b from-slate-800 to-slate-950 text-white transition-all duration-300",
       isCollapsed ? "w-20" : "w-64"
     )}>
       {/* Header / Logo Area - Optional if we want brand in sidebar */}
