@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -54,9 +55,11 @@ export function Sidebar({ isCollapsed }: SidebarProps) {
         "flex h-16 items-center border-b border-slate-700 transition-all",
         isCollapsed ? "justify-center px-0" : "px-6"
       )}>
-        <FileText className="h-6 w-6 text-blue-400 flex-shrink-0" />
+        <div className="relative h-8 w-8 flex-shrink-0 overflow-hidden rounded-md bg-white">
+          <Image src="/logo.png" alt="FREMA" fill className="object-cover" />
+        </div>
         {!isCollapsed && (
-          <span className="ml-2 text-lg font-bold tracking-tight animate-in fade-in duration-300 whitespace-nowrap">
+          <span className="ml-3 text-lg font-bold tracking-tight animate-in fade-in duration-300 whitespace-nowrap">
             FREMA
           </span>
         )}

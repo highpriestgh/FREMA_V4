@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -64,9 +65,9 @@ export default function LoginPage() {
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-purple-600/20 blur-[100px]" />
             </div>
 
-            <div className="absolute top-8 left-8 z-10 hidden md:flex items-center gap-2">
-                <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                    <FileText className="h-5 w-5 text-white" />
+            <div className="absolute top-8 left-8 z-10 hidden md:flex items-center gap-3">
+                <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-white shadow-lg">
+                    <Image src="/logo.png" alt="FREMA Logo" fill className="object-cover" />
                 </div>
                 <span className="text-xl font-bold text-white tracking-tight">FREMA</span>
             </div>
