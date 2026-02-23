@@ -23,10 +23,12 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.560.0",
     "next": "16.0.8",
+    "radix-ui": "^1.4.3",
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "react-hook-form": "^7.68.0",
     "recharts": "^3.5.1",
+    "resend": "^6.9.2",
     "tailwind-merge": "^3.4.0",
     "zod": "^4.1.13"
   },

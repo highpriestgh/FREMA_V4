@@ -40,6 +40,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { DocumentUploadForm } from "@/components/forms/document-upload-form";
+import { CreateFolderForm } from "@/components/forms/create-folder-form";
 
 // --- Mock Data ---
 
@@ -74,7 +75,7 @@ export default function FileManagerPage() {
         <div className="flex h-[calc(100vh-theme(spacing.16))] flex-col md:flex-row bg-slate-50/50">
             {/* Inner Sidebar */}
             <aside className="w-full md:w-64 bg-white border-r p-6 flex flex-col gap-6">
-                <div>
+                <div className="space-y-2">
                     <Dialog>
                         <DialogTrigger asChild>
                             <Button className="w-full bg-blue-600 hover:bg-blue-700">
@@ -89,6 +90,22 @@ export default function FileManagerPage() {
                                 </DialogDescription>
                             </DialogHeader>
                             <DocumentUploadForm />
+                        </DialogContent>
+                    </Dialog>
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" className="w-full">
+                                <Plus className="mr-2 h-4 w-4" /> New Folder
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-sm">
+                            <DialogHeader>
+                                <DialogTitle>Create New Folder</DialogTitle>
+                                <DialogDescription>
+                                    Organise your files by creating a new folder.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <CreateFolderForm />
                         </DialogContent>
                     </Dialog>
                 </div>

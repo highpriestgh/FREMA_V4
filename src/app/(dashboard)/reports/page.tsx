@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
 import {
     Card,
     CardContent,
@@ -7,6 +9,22 @@ import {
     CardTitle,
     CardDescription
 } from "@/components/ui/card";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow
+} from "@/components/ui/table";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import {
     BarChart,
     Bar,
@@ -20,7 +38,10 @@ import {
     Pie,
     Cell
 } from 'recharts';
-import { FileText, CheckCircle2, AlertCircle } from "lucide-react";
+import { FileText, CheckCircle2, AlertCircle, Download } from "lucide-react";
+import { getReportRows, type ReportRow } from "@/lib/dashboard-mock";
+import { useCan } from "@/contexts/current-user-context";
+import { PERMISSIONS } from "@/lib/permissions-mock";
 
 // Mock Data for Charts
 const monthlyData = [
@@ -42,7 +63,29 @@ const typeData = [
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
 
+function buildCSV(rows: ReportRow[]): string {
+  const header = "ID,Title,Submitted By,Date,Status,Type";
+  const body = rows.map((r) =>
+    [r.id, `"${(r.title ?? "").replace(/"/g, '""')}"`, `"${(r.submittedBy ?? "").replace(/"/g, '""')}"`, r.date, r.status, r.type].join(",")
+  ).join("\n");
+  return header + "\n" + body;
+}
+
+function downloadCSV(rows: ReportRow[], filename = "document-report.csv") {
+  const csv = buildCSV(rows);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function ReportsPage() {
+    const [statusFilter, setStatusFilter] = useState<string>("All");
+    const canExportReports = useCan(PERMISSIONS.VIEW_REPORTS);
+    const reportData = getReportRows(statusFilter === "All" ? undefined : statusFilter);
     return (
         <div className="p-8 space-y-8">
             <div>
@@ -161,6 +204,63 @@ export default function ReportsPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Document data table and CSV export */}
+            <Card className="shadow-sm border-slate-200">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                    <div>
+                        <CardTitle>Document Report</CardTitle>
+                        <CardDescription>Export document list as CSV.</CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-[140px]">
+                                <SelectValue placeholder="Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="All">All</SelectItem>
+                                <SelectItem value="Pending">Pending</SelectItem>
+                                <SelectItem value="Approved">Approved</SelectItem>
+                                <SelectItem value="Rejected">Rejected</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Button variant="outline" size="sm" onClick={() => downloadCSV(reportData)} disabled={!canExportReports}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Export as CSV
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>ID</TableHead>
+                                    <TableHead>Title</TableHead>
+                                    <TableHead>Submitted By</TableHead>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Type</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {reportData.map((row) => (
+                                    <TableRow key={row.id}>
+                                        <TableCell className="font-mono text-xs">
+                                            <Link href={`/inbox/${row.id}`} className="text-blue-600 hover:underline">{row.id}</Link>
+                                        </TableCell>
+                                        <TableCell>{row.title}</TableCell>
+                                        <TableCell>{row.submittedBy}</TableCell>
+                                        <TableCell>{row.date}</TableCell>
+                                        <TableCell>{row.status}</TableCell>
+                                        <TableCell>{row.type}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }

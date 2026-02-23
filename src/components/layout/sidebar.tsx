@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -7,7 +6,6 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FolderOpen,
-  UploadCloud,
   Users,
   Settings,
   FileText,
@@ -16,34 +14,40 @@ import {
   MapPin,
   Files,
   ShieldAlert,
-  PanelLeftClose,
-  PanelLeftOpen
-} from "lucide-react"; // Using lucide-react (standard in Shadcn)
+  GitMerge,
+  ScrollText
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { useState } from "react";
-
-const navItems = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "File Manager", href: "/documents", icon: FolderOpen },
-  { name: "Inbox", href: "/inbox", icon: Bell },
-  { name: "Reports", href: "/reports", icon: BarChart3 },
-];
-
-const adminItems = [
-  { name: "Users", href: "/admin/users", icon: Users },
-  { name: "Roles & Permissions", href: "/admin/roles", icon: ShieldAlert },
-  { name: "Document Origins", href: "/admin/origins", icon: MapPin },
-  { name: "Document Types", href: "/admin/types", icon: Files },
-  { name: "Settings", href: "/admin/settings", icon: Settings },
-];
+import { useCurrentUser, usePermissionCheck } from "@/contexts/current-user-context";
+import { PERMISSIONS } from "@/lib/permissions-mock";
 
 interface SidebarProps {
   isCollapsed: boolean;
 }
 
+const navItems: { name: string; href: string; icon: typeof LayoutDashboard; permission: keyof typeof PERMISSIONS }[] = [
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "VIEW_DOCS" },
+  { name: "File Manager", href: "/documents", icon: FolderOpen, permission: "VIEW_DOCS" },
+  { name: "Inbox", href: "/inbox", icon: Bell, permission: "VIEW_DOCS" },
+  { name: "Workflows", href: "/workflows", icon: GitMerge, permission: "VIEW_DOCS" },
+  { name: "Reports", href: "/reports", icon: BarChart3, permission: "VIEW_REPORTS" },
+];
+
+const adminItems: { name: string; href: string; icon: typeof ScrollText; permission: keyof typeof PERMISSIONS }[] = [
+  { name: "Audit Trail", href: "/audit", icon: ScrollText, permission: "VIEW_AUDIT" },
+  { name: "Users", href: "/admin/users", icon: Users, permission: "MANAGE_USERS" },
+  { name: "Roles & Permissions", href: "/admin/roles", icon: ShieldAlert, permission: "MANAGE_ROLES" },
+  { name: "Document Origins", href: "/admin/origins", icon: MapPin, permission: "MANAGE_ORIGINS" },
+  { name: "Document Types", href: "/admin/types", icon: Files, permission: "MANAGE_TYPES" },
+  { name: "Settings", href: "/admin/settings", icon: Settings, permission: "MANAGE_USERS" },
+];
+
 export function Sidebar({ isCollapsed }: SidebarProps) {
   const pathname = usePathname();
+  const user = useCurrentUser();
+  const can = usePermissionCheck();
+  const visibleNavItems = navItems.filter((item) => can(PERMISSIONS[item.permission]));
+  const visibleAdminItems = adminItems.filter((item) => can(PERMISSIONS[item.permission]));
 
   return (
     <div className={cn(
@@ -68,7 +72,7 @@ export function Sidebar({ isCollapsed }: SidebarProps) {
       {/* Main Navigation */}
       <div className="flex-1 overflow-y-auto py-6">
         <nav className="space-y-1 px-3">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -98,7 +102,7 @@ export function Sidebar({ isCollapsed }: SidebarProps) {
         </div>
         {!isCollapsed && (
           <nav className="mt-2 space-y-1 px-3">
-            {adminItems.map((item) => (
+            {visibleAdminItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -121,7 +125,7 @@ export function Sidebar({ isCollapsed }: SidebarProps) {
         {/* Collapsed Admin Icons Only */}
         {isCollapsed && (
           <nav className="mt-2 space-y-1 px-3 border-t border-slate-700 pt-4">
-            {adminItems.map((item) => (
+            {visibleAdminItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -147,12 +151,12 @@ export function Sidebar({ isCollapsed }: SidebarProps) {
       <div className="border-t border-slate-700 p-4">
         <div className={cn("flex items-center", isCollapsed && "justify-center")}>
           <div className="h-9 w-9 rounded-full bg-blue-500 flex items-center justify-center text-medium font-bold flex-shrink-0">
-            JD
+            {user?.initials ?? "?"}
           </div>
           {!isCollapsed && (
             <div className="ml-3 overflow-hidden">
-              <p className="text-sm font-medium text-white truncate">John Doe</p>
-              <p className="text-xs text-slate-400 truncate">Record Officer</p>
+              <p className="text-sm font-medium text-white truncate">{user?.name ?? "—"}</p>
+              <p className="text-xs text-slate-400 truncate">{user?.role ?? ""}</p>
             </div>
           )}
         </div>

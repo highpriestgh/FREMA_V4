@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Eye, EyeOff, Loader2, FileText } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,8 @@ import {
     CardHeader,
     CardTitle
 } from "@/components/ui/card";
+import { MOCK_USERS } from "@/lib/users-mock";
+import { useSetUser } from "@/contexts/current-user-context";
 
 const loginSchema = z.object({
     email: z.string().email({ message: "Invalid email address" }),
@@ -35,6 +37,7 @@ const loginSchema = z.object({
 
 export default function LoginPage() {
     const router = useRouter();
+    const setUser = useSetUser();
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -48,12 +51,15 @@ export default function LoginPage() {
 
     async function onSubmit(values: z.infer<typeof loginSchema>) {
         setIsLoading(true);
-        // Simulate API call
-        setTimeout(() => {
-            console.log(values);
+        const mockUser = MOCK_USERS.find((u) => u.email.toLowerCase() === values.email.toLowerCase());
+        if (!mockUser) {
+            form.setError("email", { message: "No mock user with this email. Use an email from the list below." });
             setIsLoading(false);
-            router.push("/dashboard");
-        }, 1500);
+            return;
+        }
+        setUser(mockUser);
+        setIsLoading(false);
+        router.push("/dashboard");
     }
 
     return (
@@ -160,14 +166,13 @@ export default function LoginPage() {
                     </Form>
                 </CardContent>
                 <CardFooter className="flex flex-col space-y-2 text-center text-sm text-slate-400">
-                    <div className="flex bg-slate-900/50 p-3 rounded-lg border border-slate-800 w-full text-xs text-left text-slate-500">
-                        <div className="mr-2 font-mono">
-                            <p>user: admin@dms.com</p>
-                            <p>pass: password123</p>
-                        </div>
-                        <div className="ml-auto flex items-center">
-                            Mock Creds
-                        </div>
+                    <div className="flex flex-col gap-1 bg-slate-900/50 p-3 rounded-lg border border-slate-800 w-full text-xs text-left text-slate-500">
+                        <p className="font-medium text-slate-400">Mock: sign in with any user email (password ignored)</p>
+                        <ul className="mt-1 space-y-0.5 font-mono">
+                            {MOCK_USERS.slice(0, 4).map((u) => (
+                                <li key={u.id}>{u.email} ({u.role})</li>
+                            ))}
+                        </ul>
                     </div>
                 </CardFooter>
             </Card>
