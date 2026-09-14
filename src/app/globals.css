@@ -120,3 +120,22 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ── Scanner Animations ───────────────────────────────────── */
+@keyframes scan-line {
+  0%   { top: 0; opacity: 1; }
+  90%  { top: 100%; opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+@keyframes flash {
+  0%   { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+
+.animate-scan-line {
+  animation: scan-line 2.5s linear infinite;
+}
+.animate-flash {
+  animation: flash 0.3s ease-out forwards;
+}
+

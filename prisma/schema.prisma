@@ -1,8 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// FREMA Document Management System — data model.
+// Reverse-engineered from the mock layer (src/lib/*-mock.ts) so the existing UI
+// maps cleanly onto real tables. See docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client"
@@ -11,4 +9,245 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+/// Application roles. Maps to permissions in src/lib/permissions-mock.ts
+/// (display names there: Administrator, Manager, Record Officer, Editor, Viewer).
+enum UserRole {
+  ADMINISTRATOR
+  MANAGER
+  RECORD_OFFICER
+  EDITOR
+  VIEWER
+}
+
+/// Document lifecycle state. UI badges: Pending / Approved / Rejected.
+enum DocumentStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Workflow stage — mirrors WorkflowStage in workflow-stepper.tsx.
+enum WorkflowStage {
+  SUBMITTED
+  GATEKEEPER
+  DEPARTMENT
+  COMPLETED
+}
+
+/// Routing priority. Inbox uses "normal"; dashboard surfaces "urgent".
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+/// Entity a routing/audit action targets — mirrors AuditEntityType in audit-mock.ts.
+enum AuditEntityType {
+  DOCUMENT
+  WORKFLOW
+  COMMENT
+  ANNOTATION
+  USER
+  FOLDER
+}
+
+// ---------------------------------------------------------------------------
+// Identity & org structure
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         UserRole @default(VIEWER)
+  initials     String?
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  // Relations
+  uploadedDocuments Document[]        @relation("DocumentUploader")
+  routingsCreated   WorkflowRouting[] @relation("RoutedBy")
+  routingsAssigned  WorkflowRouting[] @relation("RoutedTo")
+  comments          Comment[]
+  annotations       Annotation[]
+  auditLogs         AuditLog[]
+
+  @@index([role])
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  users    User[]
+  routings WorkflowRouting[]
+}
+
+// ---------------------------------------------------------------------------
+// Reference tables (managed under /admin)
+// ---------------------------------------------------------------------------
+
+/// Document type/category — Memo, Letter, Report, Invoice, Policy, Contract.
+model DocumentType {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  documents Document[]
+}
+
+/// Originating source of a document (admin/origins page).
+model Origin {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  documents Document[]
+}
+
+// ---------------------------------------------------------------------------
+// Documents & workflow
+// ---------------------------------------------------------------------------
+
+model Document {
+  id        String         @id @default(cuid())
+  title     String
+  status    DocumentStatus @default(PENDING)
+  stage     WorkflowStage  @default(SUBMITTED)
+
+  // File storage metadata (populated once real storage is wired up).
+  fileUrl  String?
+  fileKey  String?
+  mimeType String?
+  size     Int? // bytes
+
+  uploaderId String
+  uploader   User   @relation("DocumentUploader", fields: [uploaderId], references: [id], onDelete: Restrict)
+
+  typeId String?
+  type   DocumentType? @relation(fields: [typeId], references: [id], onDelete: SetNull)
+
+  originId String?
+  origin   Origin? @relation(fields: [originId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  routings    WorkflowRouting[]
+  comments    Comment[]
+  annotations Annotation[]
+
+  @@index([status])
+  @@index([stage])
+  @@index([uploaderId])
+  @@index([createdAt])
+}
+
+/// A routing hop: a document sent to a department/user for review.
+/// Mirrors RoutingEntry in workflow-mock.ts.
+model WorkflowRouting {
+  id       String @id @default(cuid())
+
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  // The user the document is routed to for action.
+  assignedToId String
+  assignedTo   User   @relation("RoutedTo", fields: [assignedToId], references: [id], onDelete: Restrict)
+
+  // The user who performed the routing (null for the initial submission).
+  routedById String?
+  routedBy   User?   @relation("RoutedBy", fields: [routedById], references: [id], onDelete: SetNull)
+
+  priority Priority       @default(NORMAL)
+  status   DocumentStatus @default(PENDING)
+  note     String?
+  dueDate  DateTime?
+  actedAt  DateTime? // set when assignee approves/rejects
+  routedAt DateTime  @default(now())
+
+  @@index([assignedToId, status])
+  @@index([documentId])
+}
+
+// ---------------------------------------------------------------------------
+// Collaboration
+// ---------------------------------------------------------------------------
+
+/// Review comment on a document (comment-thread.tsx).
+model Comment {
+  id String @id @default(cuid())
+
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([documentId])
+}
+
+/// Positioned annotation on a document page (annotations-mock.ts).
+model Annotation {
+  id String @id @default(cuid())
+
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  text    String
+  pageRef Int?
+  x       Float?
+  y       Float?
+
+  createdAt DateTime @default(now())
+
+  @@index([documentId])
+}
+
+// ---------------------------------------------------------------------------
+// Audit trail
+// ---------------------------------------------------------------------------
+
+/// Append-only audit log (audit-mock.ts). entityId is a soft reference — kept as
+/// a plain string so any entity type can be logged without a hard FK.
+model AuditLog {
+  id         String          @id @default(cuid())
+  action     String
+  entityType AuditEntityType
+  entityId   String?
+  details    String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
 }

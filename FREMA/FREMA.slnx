@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FREMA/FREMA.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FREMA.Tests/FREMA.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -3,8 +3,15 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { UploadCloud, File, X, Scan } from "lucide-react";
+import { UploadCloud, File, X, ScanLine } from "lucide-react";
 import { useState } from "react";
+import dynamic from "next/dynamic";
+
+// Load scanner lazily — it pulls OpenCV from CDN and uses getUserMedia
+const ScannerModal = dynamic(
+  () => import("@/components/scanner/scanner-modal").then((m) => m.ScannerModal),
+  { ssr: false }
+);
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +33,6 @@ import {
     from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { appendAuditLog, getMockCurrentUser } from "@/lib/audit-mock";
-import { triggerScan } from "@/lib/scan-sdk-placeholder";
 import { useCan } from "@/contexts/current-user-context";
 import { PERMISSIONS } from "@/lib/permissions-mock";
 
@@ -53,7 +59,7 @@ const formSchema = z.object({
 export function DocumentUploadForm() {
     const [file, setFile] = useState<File | null>(null);
     const [mode, setMode] = useState<"upload" | "scan">("upload");
-    const [scanning, setScanning] = useState(false);
+    const [showScanner, setShowScanner] = useState(false);
     const canUpload = useCan(PERMISSIONS.UPLOAD_DOCS);
 
     const form = useForm<z.infer<typeof formSchema>>({
@@ -77,18 +83,9 @@ export function DocumentUploadForm() {
         alert("Document Uploaded Successfully!");
     }
 
-    async function handleScan() {
-        setScanning(true);
-        try {
-            const result = await triggerScan();
-            if (result.ok && result.file) {
-                setFile(result.file);
-            } else {
-                alert(result.error ?? "Scan failed");
-            }
-        } finally {
-            setScanning(false);
-        }
+    function handleScanComplete(scannedFile: File) {
+        setFile(scannedFile);
+        setMode("scan");
     }
 
     return (
@@ -215,9 +212,9 @@ export function DocumentUploadForm() {
                                 type="button"
                                 variant={mode === "scan" ? "default" : "outline"}
                                 size="sm"
-                                onClick={() => { setMode("scan"); setFile(null); }}
+                                onClick={() => { setMode("scan"); setFile(null); setShowScanner(true); }}
                             >
-                                <Scan className="h-4 w-4 mr-1" />
+                                <ScanLine className="h-4 w-4 mr-1" />
                                 Scan from device
                             </Button>
                         </div>
@@ -256,12 +253,12 @@ export function DocumentUploadForm() {
                         ) : !file ? (
                             <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 flex flex-col items-center justify-center text-center bg-slate-50/50">
                                 <div className="bg-amber-100 p-3 rounded-full mb-3">
-                                    <Scan className="h-6 w-6 text-amber-600" />
+                                    <ScanLine className="h-6 w-6 text-amber-600" />
                                 </div>
                                 <h3 className="text-sm font-semibold text-slate-700">Scan from connected device</h3>
-                                <p className="text-xs text-slate-500 mt-1">Uses local scanner or /api/scan mock</p>
-                                <Button type="button" className="mt-3" onClick={handleScan} disabled={scanning}>
-                                    {scanning ? "Scanning…" : "Start scan"}
+                                <p className="text-xs text-slate-500 mt-1">Uses your webcam or phone camera as a document scanner</p>
+                                <Button type="button" className="mt-3" onClick={() => setShowScanner(true)}>
+                                    Open Scanner
                                 </Button>
                             </div>
                         ) : (
@@ -290,6 +287,14 @@ export function DocumentUploadForm() {
                     )}
                 </form>
             </Form>
+
+            {/* Scanner Modal — full-screen camera overlay */}
+            {showScanner && (
+                <ScannerModal
+                    onComplete={handleScanComplete}
+                    onClose={() => setShowScanner(false)}
+                />
+            )}
         </div>
     );
 }

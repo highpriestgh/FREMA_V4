@@ -1,0 +1,105 @@
+@*
+    Layout for the identity provider's own pages only. The application UI is the SPA,
+    served separately; these pages exist because sign-in must happen on the server.
+*@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] — FREMA</title>
+    <style>
+        :root {
+            color-scheme: light dark;
+            --bg: #f6f7f9;
+            --surface: #ffffff;
+            --text: #1a1d21;
+            --muted: #6b7280;
+            --border: #d8dbe0;
+            --accent: #1d4ed8;
+            --error: #b42318;
+        }
+
+        @@media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0f1115;
+                --surface: #181b21;
+                --text: #e7e9ee;
+                --muted: #9aa1ad;
+                --border: #2b3038;
+                --accent: #6690ff;
+                --error: #ff9a90;
+            }
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            background: var(--bg);
+            color: var(--text);
+            font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+        }
+
+        .card {
+            width: min(100% - 2rem, 24rem);
+            padding: 2rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.02em; }
+        .subtitle { margin: 0.25rem 0 1.75rem; color: var(--muted); font-size: 0.875rem; }
+
+        label { display: block; margin-bottom: 0.375rem; font-size: 0.875rem; font-weight: 500; }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 0.625rem 0.75rem;
+            margin-bottom: 1rem;
+            font: inherit;
+            color: var(--text);
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+        .checkbox {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1.25rem;
+            font-weight: 400;
+        }
+
+        .checkbox input { width: auto; margin: 0; }
+
+        button {
+            width: 100%;
+            padding: 0.625rem;
+            font: inherit;
+            font-weight: 500;
+            color: #fff;
+            background: var(--accent);
+            border: 0;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button:hover { filter: brightness(1.08); }
+
+        .error { margin-bottom: 1rem; color: var(--error); font-size: 0.875rem; }
+        .error ul { margin: 0; padding-left: 1.125rem; }
+        .error:empty { display: none; }
+    </style>
+</head>
+<body>
+    @RenderBody()
+</body>
+</html>
