@@ -63,18 +63,18 @@ export function AppShell() {
     <div className="bg-background flex min-h-screen">
       <aside
         className={cn(
-          "bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col border-r",
+          "bg-sidebar text-sidebar-foreground border-sidebar-border fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col border-r",
           "transition-transform md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
         )}
         aria-label="Main navigation"
       >
-        <div className="flex h-14 items-center justify-between gap-2 border-b px-5">
-          <Brand />
+        <div className="border-sidebar-border flex h-14 items-center justify-between gap-2 border-b px-5">
+          <Brand onDark />
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="hover:bg-accent -mr-2 rounded-md p-2 md:hidden"
+            className="hover:bg-sidebar-accent -mr-2 rounded-md p-2 md:hidden"
             aria-label="Close navigation"
           >
             <X className="size-5" />
@@ -83,11 +83,11 @@ export function AppShell() {
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {menu === null &&
-            Array.from({ length: 7 }, (_, i) => <Skeleton key={i} className="h-8 w-full" />)}
+            Array.from({ length: 7 }, (_, i) => <Skeleton key={i} className="h-8 w-full bg-white/10" />)}
           {menu?.map((item) =>
             item.children.length > 0 ? (
               <div key={item.id} className="pt-3">
-                <p className="text-muted-foreground px-3 pb-1 text-xs font-medium tracking-wide uppercase">
+                <p className="text-sidebar-foreground/60 px-3 pb-1 text-xs font-medium tracking-wide uppercase">
                   {item.label}
                 </p>
                 {item.children.map((child) => (
@@ -147,10 +147,11 @@ function NavItem({ item }: { item: MenuItem }) {
       to={item.path}
       className={({ isActive }) =>
         cn(
-          "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+          "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+          "focus-visible:ring-sidebar-ring outline-none focus-visible:ring-2",
           isActive
-            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-            : "hover:bg-sidebar-accent/50",
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium before:bg-sidebar-primary before:absolute before:inset-y-1.5 before:left-0 before:w-1 before:rounded-full"
+            : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
         )
       }
     >
@@ -161,12 +162,15 @@ function NavItem({ item }: { item: MenuItem }) {
 }
 
 /** The organisation's name and logo, as set in Settings. */
-function Brand() {
+function Brand({ onDark = false }: { onDark?: boolean }) {
   const { settings } = useClientSettings();
 
   return (
     <span className="flex min-w-0 items-center gap-2">
-      {settings?.logoUrl && <img src={settings.logoUrl} alt="" className="h-7 w-auto max-w-20 object-contain" />}
+      {settings?.logoUrl && (
+        // On the navy sidebar the logo gets a white backing: logos are usually drawn for light backgrounds.
+        <img src={settings.logoUrl} alt="" className={cn("h-7 w-auto max-w-20 object-contain", onDark && "rounded bg-white p-0.5")} />
+      )}
       <span className="truncate font-semibold tracking-tight">{settings?.organisationName ?? " "}</span>
     </span>
   );

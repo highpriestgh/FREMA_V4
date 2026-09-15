@@ -259,13 +259,13 @@ export function ShellSkeleton() {
   return (
     <div className="flex min-h-screen" role="status" aria-busy="true">
       <span className="sr-only">Loading…</span>
-      <aside className="bg-sidebar hidden w-64 shrink-0 border-r md:block">
-        <div className="flex h-14 items-center border-b px-5">
-          <Skeleton className="h-5 w-28" />
+      <aside className="bg-sidebar border-sidebar-border hidden w-64 shrink-0 border-r md:block">
+        <div className="border-sidebar-border flex h-14 items-center border-b px-5">
+          <Skeleton className="h-5 w-28 bg-white/10" />
         </div>
         <div className="space-y-2 p-3">
           {Array.from({ length: 8 }, (_, i) => (
-            <Skeleton key={i} className="h-8 w-full" />
+            <Skeleton key={i} className="h-8 w-full bg-white/10" />
           ))}
         </div>
       </aside>
