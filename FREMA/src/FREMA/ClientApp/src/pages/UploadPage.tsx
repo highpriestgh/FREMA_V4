@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScannerModal } from "@/components/scanner/scanner-modal";
+import { flattenFolders, type Folder } from "@/lib/folders";
+import { checkUpload, useClientSettings } from "@/components/layout/ClientSettings";
 
 /**
  * Registers a document: metadata first, then content.
@@ -23,14 +25,17 @@ import { ScannerModal } from "@/components/scanner/scanner-modal";
 export function UploadPage() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { settings } = useClientSettings();
 
   const { data: types } = useApi<ReferenceItem[]>("/api/document-types");
   const { data: origins } = useApi<ReferenceItem[]>("/api/origins");
+  const { data: folders } = useApi<Folder[]>("/api/folders");
 
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [typeId, setTypeId] = useState("");
   const [originId, setOriginId] = useState("");
+  const [folderId, setFolderId] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -48,6 +53,7 @@ export function UploadPage() {
         summary: summary.trim() || null,
         documentTypeId: typeId || null,
         originId: originId || null,
+        folderId: folderId || null,
       });
 
       if (file) {
@@ -136,6 +142,22 @@ export function UploadPage() {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="folder">Folder</Label>
+              <select
+                id="folder"
+                value={folderId}
+                onChange={(event) => setFolderId(event.target.value)}
+                className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+              >
+                <option value="">Not filed</option>
+                {/* Full paths, not just names: two folders called "2026" are otherwise indistinguishable. */}
+                {flattenFolders(folders ?? []).map((f) => (
+                  <option key={f.id} value={f.id}>{f.path}</option>
+                ))}
+              </select>
+            </div>
+
             <Button disabled={busy} onClick={() => void save()}>
               {busy ? "Saving…" : "Register document"}
             </Button>
@@ -172,13 +194,22 @@ export function UploadPage() {
                   <UploadIcon className="text-muted-foreground mx-auto size-6" aria-hidden />
                   <span className="mt-2 block text-sm font-medium">Choose a file</span>
                   <span className="text-muted-foreground block text-xs">
-                    PDF, image or Office document
+                    {settings ? `${settings.allowedExtensions.join(", ")} · up to ${Math.floor(settings.maxUploadBytes / 1048576)} MB` : "PDF, image or Office document"}
                   </span>
                   <input
                     type="file"
                     hidden
-                    accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.doc,.docx,.xls,.xlsx,.txt"
-                    onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                    accept={settings?.allowedExtensions.join(",")}
+                    onChange={(event) => {
+                      const chosen = event.target.files?.[0] ?? null;
+                      const problem = chosen && checkUpload(chosen, settings);
+                      if (problem) {
+                        toast.error("That file can't be attached", problem);
+                        event.target.value = "";
+                        return;
+                      }
+                      setFile(chosen);
+                    }}
                   />
                 </label>
 

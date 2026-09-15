@@ -3,6 +3,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/useApi";
 import { useToast } from "@/components/ui/toast";
+import { TableRowsSkeleton } from "@/components/layout/PageSkeletons";
 import type { ReferenceItem } from "@/lib/types";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +34,7 @@ export function ReferenceDataPage({
   noun: string;
 }) {
   const toast = useToast();
-  const { data, reload } = useApi<ReferenceItem[]>(`/api/${resource}?includeInactive=true`, [resource]);
+  const { data, initialLoading, reload } = useApi<ReferenceItem[]>(`/api/${resource}?includeInactive=true`, [resource]);
 
   const [name, setName] = useState("");
   const [describe, setDescribe] = useState("");
@@ -129,6 +130,7 @@ export function ReferenceDataPage({
               </TableRow>
             </TableHeader>
             <TableBody>
+              {initialLoading && <TableRowsSkeleton rows={5} columns={4} />}
               {data?.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{item.name}</TableCell>

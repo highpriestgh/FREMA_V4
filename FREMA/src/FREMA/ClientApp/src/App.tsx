@@ -8,8 +8,16 @@ import { DocumentDetailPage } from "@/pages/DocumentDetailPage";
 import { UploadPage } from "@/pages/UploadPage";
 import { AuditPage } from "@/pages/AuditPage";
 import { ReferenceDataPage } from "@/pages/admin/ReferenceDataPage";
+import { WorkflowsPage } from "@/pages/WorkflowsPage";
+import { UsersPage } from "@/pages/admin/UsersPage";
+import { RolesPage } from "@/pages/admin/RolesPage";
+import { ReportsPage } from "@/pages/ReportsPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { ToastProvider } from "@/components/ui/toast";
+import { TopLoader } from "@/components/layout/TopLoader";
+import { SessionWatcher } from "@/components/layout/SessionWatcher";
+import { ClientSettingsProvider } from "@/components/layout/ClientSettings";
+import { SettingsPage } from "@/pages/admin/SettingsPage";
 
 /**
  * Every route sits behind RequireAuth. There is no public area: sign-in happens on the
@@ -21,9 +29,12 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
+          <TopLoader />
+          <SessionWatcher />
           <RequireAuth>
             <Routes>
-              <Route element={<AppShell />}>
+              {/* Branding and upload rules are loaded inside the signed-in area: reading them needs a session. */}
+              <Route element={<ClientSettingsProvider><AppShell /></ClientSettingsProvider>}>
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard" element={<DashboardPage />} />
                 <Route path="inbox" element={<InboxPage />} />
@@ -31,6 +42,13 @@ export default function App() {
                 <Route path="documents/:id" element={<DocumentDetailPage />} />
                 <Route path="upload" element={<UploadPage />} />
                 <Route path="audit" element={<AuditPage />} />
+                <Route path="reports" element={<ReportsPage />} />
+                {/* Same screen; it becomes editable for holders of admin.settings. */}
+                <Route path="workflows" element={<WorkflowsPage />} />
+                <Route path="admin/workflows" element={<WorkflowsPage />} />
+                <Route path="admin/users" element={<UsersPage />} />
+                <Route path="admin/roles" element={<RolesPage />} />
+                <Route path="admin/settings" element={<SettingsPage />} />
 
                 {/* One component, three routes — the lookup tables share a shape on the
                     server, so they share a screen here too. */}

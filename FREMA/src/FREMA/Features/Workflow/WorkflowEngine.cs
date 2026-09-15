@@ -2,6 +2,7 @@ using FREMA.Common;
 using FREMA.Domain;
 using FREMA.Infrastructure.Auditing;
 using FREMA.Infrastructure.Persistence;
+using FREMA.Infrastructure.Settings;
 using Microsoft.EntityFrameworkCore;
 
 namespace FREMA.Features.Workflow;
@@ -25,6 +26,7 @@ public enum WorkflowDecision
 public sealed class WorkflowEngine(
     FremaDbContext db,
     IAuditService audit,
+    ISettingsService settings,
     ILogger<WorkflowEngine> logger)
 {
     /// <summary>
@@ -85,6 +87,19 @@ public sealed class WorkflowEngine(
         {
             throw new ConflictException(
                 $"A document with status '{document.Status}' cannot be submitted.");
+        }
+
+        // Submitting starts the route from step one. A returned document that still holds a
+        // live assignment must be *resumed* through that assignment instead — restarting it
+        // would discard every approval already given. Only a document returned from the
+        // first step, which has no earlier step to hold an assignment, is submitted afresh.
+        if (document.Status == DocumentStatus.Returned
+            && await db.WorkflowRoutings.AnyAsync(
+                r => r.DocumentId == document.Id && r.Status == RoutingStatus.Pending, ct))
+        {
+            throw new ConflictException(
+                "This document was returned with an open assignment. Act on that assignment " +
+                "to send it on — submitting again would restart its approval route.");
         }
 
         var definition = await SelectDefinitionAsync(
@@ -220,9 +235,7 @@ public sealed class WorkflowEngine(
                 Status = RoutingStatus.Pending,
                 Note = rejected.Decision,
                 ReturnedFromRoutingId = rejected.Id,
-                DueDate = previousStep.DueAfterDays is { } days
-                    ? DateTimeOffset.UtcNow.AddDays(days)
-                    : null,
+                DueDate = await DueDateForAsync(previousStep, ct),
             });
         }
         // With no earlier step the document simply goes back to its owner, who edits and
@@ -344,7 +357,7 @@ public sealed class WorkflowEngine(
                 "or choose a recipient.");
         }
 
-        var due = step.DueAfterDays is { } days ? DateTimeOffset.UtcNow.AddDays(days) : (DateTimeOffset?)null;
+        var due = await DueDateForAsync(step, ct);
 
         foreach (var assigneeId in assignees.Distinct())
         {
@@ -456,5 +469,15 @@ public sealed class WorkflowEngine(
             ?? throw new DomainRuleException(
                 "The recipient belongs to no department, and the step does not name one. " +
                 "Assign the user to a department or configure the step.");
+    }
+
+    /// <summary>
+    /// The deadline for a new assignment: the step's own period, or the organisation's
+    /// default from Settings when the step sets none. Null when neither applies.
+    /// </summary>
+    private async Task<DateTimeOffset?> DueDateForAsync(WorkflowStep step, CancellationToken ct)
+    {
+        var days = step.DueAfterDays ?? (await settings.GetAsync(ct)).DefaultDueDays;
+        return days is { } d ? DateTimeOffset.UtcNow.AddDays(d) : null;
     }
 }

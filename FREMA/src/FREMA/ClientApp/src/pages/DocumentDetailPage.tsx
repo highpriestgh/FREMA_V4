@@ -16,16 +16,21 @@ import { DecisionPanel, SubmitPanel } from "@/components/documents/DecisionPanel
 import { CommentThread } from "@/components/documents/CommentThread";
 import { FilePanel } from "@/components/documents/FilePanel";
 import { statusVariant } from "./DocumentsPage";
+import { FolderPicker } from "@/components/documents/FolderPicker";
+import { DocumentDetailSkeleton } from "@/components/layout/PageSkeletons";
 
 export function DocumentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { profile } = useAuth();
-  const { data, loading, error, reload } = useApi<DocumentDetail>(
+  // Silent: a document the user may not open is explained on the page itself.
+  const { data, initialLoading, error, reload } = useApi<DocumentDetail>(
     id ? `/api/documents/${id}` : null,
+    [],
+    { silent: true },
   );
 
-  if (loading) {
-    return <p className="text-muted-foreground text-sm">Loading…</p>;
+  if (initialLoading) {
+    return <DocumentDetailSkeleton />;
   }
 
   if (error) {
@@ -142,6 +147,7 @@ export function DocumentDetailPage() {
               <Detail label="Number" value={data.number} mono />
               <Detail label="Type" value={data.documentType} />
               <Detail label="Origin" value={data.origin} />
+              <FolderPicker documentId={data.id} folderId={data.folderId} onMoved={reload} />
               <Detail label="Raised by" value={data.uploadedBy} />
               <Detail label="Created" value={new Date(data.createdAt).toLocaleString()} />
               {data.closedAt && (

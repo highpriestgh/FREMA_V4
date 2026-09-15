@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
 import type { DocumentDetail } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { checkUpload, useClientSettings } from "@/components/layout/ClientSettings";
 
 function formatSize(bytes: number | null) {
   if (bytes === null) return "";
@@ -22,10 +23,18 @@ export function FilePanel({
   onChanged: () => void;
 }) {
   const toast = useToast();
+  const { settings } = useClientSettings();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
 
   async function upload(file: File) {
+    const problem = checkUpload(file, settings);
+    if (problem) {
+      toast.error("That file can't be attached", problem);
+      if (input.current) input.current.value = "";
+      return;
+    }
+
     setBusy(true);
     try {
       await api.upload(`/api/documents/${doc.id}/content`, file);
@@ -111,7 +120,7 @@ export function FilePanel({
         ref={input}
         type="file"
         hidden
-        accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.doc,.docx,.xls,.xlsx,.txt"
+        accept={settings?.allowedExtensions.join(",")}
         onChange={(event) => {
           const file = event.target.files?.[0];
           if (file) void upload(file);

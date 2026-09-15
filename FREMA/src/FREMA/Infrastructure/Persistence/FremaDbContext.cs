@@ -37,6 +37,9 @@ public class FremaDbContext(DbContextOptions<FremaDbContext> options)
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<MenuItem> MenuItems => Set<MenuItem>();
 
+    public DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
+    public DbSet<DocumentNumberCounter> DocumentNumberCounters => Set<DocumentNumberCounter>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

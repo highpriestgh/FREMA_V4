@@ -1,11 +1,18 @@
 @page
 @model FREMA.Pages.Account.LoginModel
+@inject FREMA.Infrastructure.Settings.ISettingsService Settings
 @{
-    ViewData["Title"] = "Sign in";
+    var organisation = await Settings.GetAsync();
+    ViewData["Title"] = $"Sign in — {organisation.OrganisationName}";
+    var logoUrl = FREMA.Features.Settings.SettingsEndpoints.LogoUrl(organisation);
 }
 
 <div class="card">
-    <h1>FREMA</h1>
+    @if (logoUrl is not null)
+    {
+        <img src="@logoUrl" alt="" class="logo" />
+    }
+    <h1>@organisation.OrganisationName</h1>
     <p class="subtitle">File and Records Management</p>
 
     <form method="post">

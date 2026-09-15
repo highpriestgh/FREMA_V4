@@ -157,7 +157,7 @@ public class WorkflowRoutingConfiguration : IEntityTypeConfiguration<WorkflowRou
         // Drives the inbox query: "what is waiting on me".
         builder.HasIndex(r => new { r.AssignedToId, r.Status });
         builder.HasIndex(r => r.DocumentId);
-        builder.HasIndex(r => r.DueDate);
+        builder.HasIndex(r => new { r.Status, r.DueDate });
     }
 }
 

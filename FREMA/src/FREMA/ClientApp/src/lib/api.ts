@@ -8,6 +8,8 @@
  * makes the cookie safe to rely on.
  */
 
+import { beginRequest, endRequest } from "./loading";
+
 /** Matches BffOptions.AntiForgeryHeaderName / HeaderValue on the server. */
 const ANTIFORGERY_HEADER = "X-CSRF";
 const ANTIFORGERY_VALUE = "1";
@@ -87,7 +89,24 @@ async function toError(response: Response): Promise<ApiError> {
 async function request<T>(
   method: string,
   path: string,
-  options: { body?: unknown; query?: Query; signal?: AbortSignal } = {},
+  options: { body?: unknown; query?: Query; signal?: AbortSignal; background?: boolean } = {},
+): Promise<T> {
+  // Background polling is left out of the loading bar, or it would flicker every minute.
+  if (!options.background) beginRequest();
+  try {
+    return await send<T>(method, path, options);
+  } finally {
+    if (!options.background) endRequest();
+  }
+}
+
+/** Raised when the session has ended mid-use; the auth layer offers to sign in again. */
+export const SESSION_EXPIRED_EVENT = "frema:session-expired";
+
+async function send<T>(
+  method: string,
+  path: string,
+  options: { body?: unknown; query?: Query; signal?: AbortSignal },
 ): Promise<T> {
   const headers: Record<string, string> = {
     [ANTIFORGERY_HEADER]: ANTIFORGERY_VALUE,
@@ -115,6 +134,11 @@ async function request<T>(
   });
 
   if (!response.ok) {
+    // A 401 from the application API means the session ran out while the page was open.
+    // /bff/user is excluded: a 401 there is the ordinary "not signed in yet" answer.
+    if (response.status === 401 && path.startsWith("/api/")) {
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+    }
     throw await toError(response);
   }
 
@@ -126,8 +150,8 @@ async function request<T>(
 }
 
 export const api = {
-  get: <T>(path: string, query?: Query, signal?: AbortSignal) =>
-    request<T>("GET", path, { query, signal }),
+  get: <T>(path: string, query?: Query, signal?: AbortSignal, options?: { background?: boolean }) =>
+    request<T>("GET", path, { query, signal, background: options?.background }),
 
   post: <T>(path: string, body?: unknown, query?: Query) =>
     request<T>("POST", path, { body, query }),

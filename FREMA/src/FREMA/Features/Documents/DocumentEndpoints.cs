@@ -35,6 +35,11 @@ public static class DocumentEndpoints
         group.MapPut("/{id:guid}", UpdateAsync)
             .RequireAuthorization(Permissions.EditDocuments);
 
+        // Filing is separate from editing: records staff file documents after approval, when
+        // the content is locked and the uploader can no longer change anything.
+        group.MapPut("/{id:guid}/folder", MoveToFolderAsync)
+            .RequireAuthorization(Permissions.ManageFolders);
+
         group.MapDelete("/{id:guid}", DeleteAsync)
             .RequireAuthorization(Permissions.ViewDocuments);
 
@@ -162,6 +167,7 @@ public static class DocumentEndpoints
         FremaDbContext db,
         ICurrentUser user,
         IAuditService audit,
+        DocumentNumberGenerator numbers,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Title))
@@ -169,36 +175,51 @@ public static class DocumentEndpoints
             throw new DomainRuleException("A title is required.");
         }
 
-        var number = request.Number?.Trim();
-        if (string.IsNullOrEmpty(number))
+        await EnsureReferencesExistAsync(db, request.DocumentTypeId, request.OriginId, request.FolderId, ct);
+
+        var manualNumber = request.Number?.Trim();
+        var uploaderId = user.RequireUserId();
+
+        // The number is taken and the document saved in one transaction, so a failed save
+        // hands its number back rather than leaving a gap in the register.
+        var documentId = await db.InRetriableTransactionAsync(async () =>
         {
-            number = GenerateNumber();
-        }
-        else if (await db.Documents.AnyAsync(d => d.Number == number, ct))
-        {
-            throw new ConflictException($"Document number '{number}' is already in use.");
-        }
+            string number;
+            if (string.IsNullOrEmpty(manualNumber))
+            {
+                number = await numbers.NextAsync(ct);
+            }
+            else if (await db.Documents.AnyAsync(d => d.Number == manualNumber, ct))
+            {
+                throw new ConflictException($"Document number '{manualNumber}' is already in use.");
+            }
+            else
+            {
+                number = manualNumber;
+            }
 
-        var document = new Document
-        {
-            Number = number,
-            Title = request.Title.Trim(),
-            Summary = request.Summary?.Trim(),
-            DocumentTypeId = request.DocumentTypeId,
-            OriginId = request.OriginId,
-            FolderId = request.FolderId,
-            UploadedById = user.RequireUserId(),
-            Status = DocumentStatus.Draft,
-        };
+            var document = new Document
+            {
+                Number = number,
+                Title = request.Title.Trim(),
+                Summary = request.Summary?.Trim(),
+                DocumentTypeId = request.DocumentTypeId,
+                OriginId = request.OriginId,
+                FolderId = request.FolderId,
+                UploadedById = uploaderId,
+                Status = DocumentStatus.Draft,
+            };
 
-        db.Documents.Add(document);
-        audit.Record(AuditActions.DocumentCreated, AuditEntityType.Document, document.Id,
-            new { document.Number, document.Title });
+            db.Documents.Add(document);
+            audit.Record(AuditActions.DocumentCreated, AuditEntityType.Document, document.Id,
+                new { document.Number, document.Title });
 
-        await db.SaveChangesAsync(ct);
+            await db.SaveChangesAsync(ct);
+            return document.Id;
+        }, ct);
 
-        var created = await LoadForReadAsync(db, document.Id, ct);
-        return TypedResults.Created($"/api/documents/{document.Id}", ToDetail(created));
+        var created = await LoadForReadAsync(db, documentId, ct);
+        return TypedResults.Created($"/api/documents/{documentId}", ToDetail(created));
     }
 
     private static async Task<Ok<DocumentDetailDto>> UpdateAsync(
@@ -220,6 +241,8 @@ public static class DocumentEndpoints
             throw new DomainRuleException("A title is required.");
         }
 
+        await EnsureReferencesExistAsync(db, request.DocumentTypeId, request.OriginId, request.FolderId, ct);
+
         document.Title = request.Title.Trim();
         document.Summary = request.Summary?.Trim();
         document.DocumentTypeId = request.DocumentTypeId;
@@ -232,6 +255,50 @@ public static class DocumentEndpoints
 
         var updated = await LoadForReadAsync(db, id, ct);
         return TypedResults.Ok(ToDetail(updated));
+    }
+
+    public sealed record MoveToFolderRequest(Guid? FolderId);
+
+    /// <summary>
+    /// Files a document in a folder, or removes it from one when <c>FolderId</c> is null.
+    /// Allowed at any status — approved documents are exactly the ones that get filed — but
+    /// only for documents the caller can see.
+    /// </summary>
+    private static async Task<NoContent> MoveToFolderAsync(
+        Guid id,
+        MoveToFolderRequest request,
+        FremaDbContext db,
+        IAuthorizationService authorization,
+        IAuditService audit,
+        HttpContext http,
+        CancellationToken ct)
+    {
+        var document = await db.Documents.FirstOrDefaultAsync(d => d.Id == id, ct)
+            ?? throw new NotFoundException("Document", id);
+
+        await AuthorizeAsync(authorization, http, document, DocumentOperations.Read);
+
+        string? folderName = null;
+        if (request.FolderId is { } folderId)
+        {
+            folderName = await db.Folders.Where(f => f.Id == folderId).Select(f => f.Name).FirstOrDefaultAsync(ct)
+                ?? throw new NotFoundException("Folder", folderId);
+        }
+
+        if (document.FolderId == request.FolderId)
+        {
+            return TypedResults.NoContent();
+        }
+
+        var previous = document.FolderId;
+        document.FolderId = request.FolderId;
+        document.UpdatedAt = DateTimeOffset.UtcNow;
+
+        audit.Record("document.filed", AuditEntityType.Document, id,
+            new { From = previous, To = request.FolderId, Folder = folderName });
+        await db.SaveChangesAsync(ct);
+
+        return TypedResults.NoContent();
     }
 
     private static async Task<NoContent> DeleteAsync(
@@ -441,6 +508,23 @@ public static class DocumentEndpoints
     /// Runs the resource-based check and turns a refusal into a 403. Without this the
     /// permission policy alone would let any approver touch any document.
     /// </summary>
+    /// <summary>
+    /// Checks that a referenced type, origin and folder exist, so a stale or mistyped id is a
+    /// 404 naming what is missing rather than a foreign-key failure surfacing as a 500.
+    /// </summary>
+    private static async Task EnsureReferencesExistAsync(
+        FremaDbContext db, Guid? typeId, Guid? originId, Guid? folderId, CancellationToken ct)
+    {
+        if (typeId is { } t && !await db.DocumentTypes.AnyAsync(x => x.Id == t, ct))
+            throw new NotFoundException("Document type", t);
+
+        if (originId is { } o && !await db.Origins.AnyAsync(x => x.Id == o, ct))
+            throw new NotFoundException("Origin", o);
+
+        if (folderId is { } f && !await db.Folders.AnyAsync(x => x.Id == f, ct))
+            throw new NotFoundException("Folder", f);
+    }
+
     private static async Task AuthorizeAsync(
         IAuthorizationService authorization,
         HttpContext http,
@@ -454,17 +538,6 @@ public static class DocumentEndpoints
                 $"You are not permitted to {operation.Name!.ToLowerInvariant()} this document.");
         }
     }
-
-    /// <summary>
-    /// A unique, non-guessable reference.
-    /// <para>
-    /// <b>Open decision:</b> a records office usually wants a strictly sequential register
-    /// number. That needs a database sequence to stay gap-free under concurrency, which this
-    /// deliberately does not fake. Callers may supply their own number instead.
-    /// </para>
-    /// </summary>
-    private static string GenerateNumber() =>
-        $"FR-{DateTimeOffset.UtcNow:yyyy}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
 
     /// <summary>
     /// The step that follows the current one, so the client can prompt for a recipient

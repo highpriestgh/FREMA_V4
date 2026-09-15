@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { api, ApiError, login } from "@/lib/api";
 import type { Profile } from "@/lib/types";
+import { ShellSkeleton } from "@/components/layout/PageSkeletons";
 
 interface AuthState {
   profile: Profile | null;
@@ -94,12 +95,9 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     }
   }, [loading, profile]);
 
+  // Shaped like the app itself, so the first paint does not jump when the session is confirmed.
   if (loading) {
-    return (
-      <div className="grid min-h-screen place-items-center">
-        <p className="text-muted-foreground text-sm">Loading…</p>
-      </div>
-    );
+    return <ShellSkeleton />;
   }
 
   if (!profile) {

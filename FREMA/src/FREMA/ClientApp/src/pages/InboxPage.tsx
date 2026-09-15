@@ -1,18 +1,14 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CornerUpLeft } from "lucide-react";
-import { api } from "@/lib/api";
+import { useApi } from "@/lib/useApi";
+import { InboxSkeleton } from "@/components/layout/PageSkeletons";
 import { priorityLabel, Priority, type InboxItem, type PagedResult } from "@/lib/types";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 
 export function InboxPage() {
-  const [data, setData] = useState<PagedResult<InboxItem> | null>(null);
-
-  useEffect(() => {
-    void api.get<PagedResult<InboxItem>>("/api/inbox").then(setData);
-  }, []);
+  const { data, initialLoading } = useApi<PagedResult<InboxItem>>("/api/inbox");
 
   return (
     <div className="space-y-6">
@@ -20,6 +16,8 @@ export function InboxPage() {
         title="Inbox"
         description="Documents waiting on your decision."
       />
+
+      {initialLoading && <InboxSkeleton />}
 
       {data?.items.length === 0 && (
         <Card className="text-muted-foreground p-10 text-center text-sm">

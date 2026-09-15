@@ -407,6 +407,20 @@ namespace FREMA.Infrastructure.Persistence.Migrations
                     b.ToTable("Documents");
                 });
 
+            modelBuilder.Entity("FREMA.Domain.DocumentNumberCounter", b =>
+                {
+                    b.Property<string>("Scope")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("LastValue")
+                        .HasColumnType("int");
+
+                    b.HasKey("Scope");
+
+                    b.ToTable("DocumentNumberCounters");
+                });
+
             modelBuilder.Entity("FREMA.Domain.DocumentType", b =>
                 {
                     b.Property<Guid>("Id")
@@ -635,6 +649,92 @@ namespace FREMA.Infrastructure.Persistence.Migrations
                     b.ToTable("RolePermissions");
                 });
 
+            modelBuilder.Entity("FREMA.Domain.SystemSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AllowedExtensions")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("DefaultDueDays")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("LogoContent")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("LogoContentType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTimeOffset?>("LogoUpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("MaxUploadMegabytes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("NumberDigits")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("NumberIncludesYear")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("NumberPrefix")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<bool>("NumberResetsYearly")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("OrganisationName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("ReminderDueSoonHours")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ReminderRepeatHours")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("RemindersEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SystemSettings", t =>
+                        {
+                            t.HasCheckConstraint("CK_SystemSettings_Singleton", "[Id] = 1");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            AllowedExtensions = ".pdf,.png,.jpg,.jpeg,.tif,.tiff,.doc,.docx,.xls,.xlsx,.txt",
+                            DefaultDueDays = 5,
+                            MaxUploadMegabytes = 50,
+                            NumberDigits = 6,
+                            NumberIncludesYear = true,
+                            NumberPrefix = "FR",
+                            NumberResetsYearly = true,
+                            OrganisationName = "FREMA",
+                            ReminderDueSoonHours = 24,
+                            ReminderRepeatHours = 24,
+                            RemindersEnabled = true
+                        });
+                });
+
             modelBuilder.Entity("FREMA.Domain.WorkflowDefinition", b =>
                 {
                     b.Property<Guid>("Id")
@@ -714,6 +814,9 @@ namespace FREMA.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("DueDate")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<DateTimeOffset?>("LastReminderAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("Note")
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
@@ -742,8 +845,6 @@ namespace FREMA.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DocumentId");
 
-                    b.HasIndex("DueDate");
-
                     b.HasIndex("ReturnedFromRoutingId");
 
                     b.HasIndex("RoutedById");
@@ -751,6 +852,8 @@ namespace FREMA.Infrastructure.Persistence.Migrations
                     b.HasIndex("WorkflowStepId");
 
                     b.HasIndex("AssignedToId", "Status");
+
+                    b.HasIndex("Status", "DueDate");
 
                     b.ToTable("WorkflowRoutings");
                 });

@@ -581,7 +581,173 @@ Radix/shadcn (framework-agnostic), and the scanner is pure browser APIs.
       decides nothing about what a user may see
 - [x] React Router: dashboard, inbox, documents, document detail, **upload**, **audit**,
       **admin reference data** (departments / types / origins), 404
-- [ ] Remaining pages: workflow-definition admin, users admin, roles admin, reports, folders
+- [x] **Workflow-definition admin** (`/admin/workflows`, editable; `/workflows`, read-only for
+      anyone who routes documents) — list, create, edit, reorder steps, make default,
+      activate/deactivate, delete
+- [x] **Users admin** (`/admin/users`) — search, filter by department, create (temporary
+      password shown once, with copy), edit names, department, roles and active status
+- [x] **Roles admin** (`/admin/roles`) — permissions grouped by category, select-all per
+      group, create and delete custom roles; built-in role names are locked
+- [x] `/api/roles/lookup` — role names for pickers, open to any signed-in user, so assigning a
+      role (to a user or a workflow step) no longer needs the right to redefine roles. Fixes
+      the gap noted under route administration.
+- [x] **Reports** (`GET /api/reports`, `/reports`) — for a chosen range (7 days to 12
+      months): documents registered, approved and abandoned; open and overdue now; median and
+      average turnaround; the slowest steps; per-department decisions, wait times and backlog;
+      the age of open documents; and a daily trend. Counts only, so it can be shown to people
+      who could not open the documents themselves.
+- [x] **Folders** — a folder panel on the Documents page (select to filter; add subfolder,
+      rename and delete for holders of `folders.manage`), a folder choice when registering a
+      document, and a folder setting in each document's details
+- [x] `PUT /api/documents/{id}/folder` — filing is separate from editing. Records staff file
+      documents after approval, when the uploader can no longer change them, so filing needs
+      `folders.manage` and read access to the document, at any status
+- [x] Folder counts now include only documents the viewer can see. Before, they counted every
+      document, which revealed how many hidden documents sat in each folder
+- [x] **Settings** (`/admin/settings`, `admin.settings`) — the four areas chosen:
+  1. **Document numbering** — prefix, digits, include year, restart yearly; live preview of
+     the next number. Numbers are allocated by a locking `MERGE` on a counter row *inside the
+     same transaction* that saves the document (`DocumentNumberGenerator`), so simultaneous
+     registrations cannot collide and a failed save gives its number back. Replaces the random
+     `FR-2026-XXXXXXXX` numbers. Typed-in numbers are still allowed; the sequence skips any it
+     would otherwise reuse.
+  2. **Organisation name and logo** — in the sidebar and on the sign-in page. The logo is PNG,
+     JPEG or WebP only (checked from the bytes; SVG refused because it can carry script),
+     ≤ 512 KB, served anonymously at `/branding/logo?v=…` so the sign-in page can show it.
+  3. **Deadlines and reminders** — default deadline for steps without one; a background job
+     (`ReminderHostedService`, every 15 min, `Reminders:IntervalMinutes`) sends in-app
+     reminders once before the deadline and then at most every *n* hours while overdue;
+     "Send reminders now" for administrators. A **notification bell** shows them. In-app only —
+     email delivery is still Phase 7.
+  4. **File uploads** — allowed types (only those the server can verify from contents) and a
+     size limit, capped by `Storage:MaxFileSizeBytes` (now 200 MB). The upload page and
+     document file panel follow the rules and warn before sending.
+
+  New migration `Settings` (additive): `SystemSettings` (single row, created by the migration),
+  `DocumentNumberCounters`, `WorkflowRoutings.LastReminderAt`.
+
+**Verified** (API and Chromium, as the test account with a temporary Administrator role, since
+removed):
+
+| Check | Result |
+|---|---|
+| 10 documents registered simultaneously | `FR-2026-000001` … `000010`, all unique, no gaps |
+| A save that fails after taking a number | next document got `000011` — no gap |
+| Change to `REG`, 4 digits, no year | next document `REG-0013`; count carried on |
+| Invalid prefix / `.exe` / 5000 MB | each refused with a plain message |
+| PNG when only PDF allowed; 2 MB PDF with 1 MB limit | refused: "not accepted", "exceeds the 1 MB limit" |
+| SVG renamed `.png` as logo | refused |
+| Logo without a session; sign-in page | 200 `image/png`; page shows name, logo, and tab title |
+| Step with no deadline, default 3 days | due date set 3 days out |
+| Reminders: first run / second run | 4 due-soon / 0 — no repeats |
+| Overdue, last reminded 30 h ago (repeat 24 h) / again | 1 / 0 |
+| Reminders switched off | run reports disabled, nothing sent |
+| Bell | 3 unread; opening one navigated to the document and left 2 |
+
+**Three defects found and fixed while testing:**
+
+1. **Missing referenced record → 500.** Creating or updating a document with a folder, type or
+   origin id that does not exist hit a foreign-key error. It now returns 404 naming what is
+   missing. (Pre-existing; exposed by the numbering rollback test.)
+2. **Uploads above ~28 MB would have failed with a bare 413.** Kestrel's default request limit
+   sits below the upload limit, so the application's own size message would never be reached.
+   Kestrel and multipart limits are now set from the configured ceiling.
+3. **Uploading a logo discarded unsaved changes on the Settings page.** The logo saves
+   immediately and reloaded the page data, which reset the whole form. The form now fills
+   once and is only replaced by the result of an explicit save. Re-tested: changes made before
+   a logo upload are kept and saved.
+
+All settings were returned to their defaults after testing.
+
+> Test data left: route "Report Review" and its document "Quarterly records report"; documents
+> "Concurrency test 1–10", "After the failure", "After the 404", "New format" (`REG-0013`),
+> "Upload rules test"; reminder notifications for the test accounts.
+
+**Folders — verified in Chromium** as a Records Officer (a role granted to the test account
+for the test, then removed): created a folder and a subfolder from the panel; filed a Pending
+document from its page; selecting the subfolder showed that one document under the heading
+"Records Office / Retention"; deleting the non-empty folder was refused (409, "holds 1
+document(s)"). No other errors. **Visibility checked:** with an admin-only document also
+filed in that folder (2 in total), the test account's count and list both showed 1.
+
+Limitation: selecting a folder shows documents filed *directly* in it, not in its subfolders.
+
+> Leftover test data: folders "Parent" / "Child" from the earlier cycle-guard test, and
+> "Records Office" / "Retention" from this one.
+
+**Reports — verified.** All queries translate to SQL (wait times are computed by the database
+in minutes). Checked against the data: 4 open documents, and the age groups sum to 4; the
+Review step comes out slowest at 32.2 hours. An inverted range is rejected with a plain
+message. In Chromium the page rendered with no errors, the chart tooltip showed per-day
+values, and switching the range reloaded it. The two chart colours (blue/orange) passed the
+colour-blindness and contrast checks for both light and dark backgrounds. The chart has a
+legend, labels at the line ends, and a "Show table" option, so it doesn't rely on colour alone.
+
+> Leftover test data: "Q3 Procurement Policy" is open at the Approval step with nobody
+> assigned — created on the first test run, before approving required choosing the next
+> recipient. It is counted as open in the reports. It can be deleted, or reassigned once an
+> admin reassignment feature exists.
+
+**Verified in Chromium:** created a Finance user with the Manager role through the form (a
+20-character temporary password was shown once); granted the Viewer role
+`documents.comment` and the confirmation said it applies to 1 user on their next request.
+No 4xx/5xx.
+
+**End-to-end result:** the Invoice document that had been refused because nobody held the
+Manager role was then submitted. It chose the Invoice route, and the role-based first step
+assigned it automatically to the new manager, filed under Finance.
+
+- [x] **Forced password change — fixed.** Signing in with a temporary password now leads to
+      `/Account/ChangePassword` before any session exists. The sign-in page checks the
+      password *without* signing in, and issues only a five-minute cookie that proves the
+      password was correct. That cookie is not a session, so there is no way round the page.
+      Verified in Chromium:
+
+      | Attempt | Result |
+      |---|---|
+      | Sign in with the temporary password | sent to the change-password page |
+      | Go to `/bff/login` instead | back to sign-in; `/bff/user` returns 401 |
+      | Weak password | rejected with the password rules |
+      | Passwords don't match | rejected |
+      | Reuse the temporary password | rejected |
+      | Valid new password | lands on `/dashboard`; `mustChangePassword` is false; audited |
+      | Sign in again with the new password | straight in |
+      | Sign in with the old temporary password | "Invalid username or password" |
+
+      (The users list first labelled these accounts "Pending first sign-in", which was wrong
+      for people who had signed in; it now shows "Never signed in" or "Temporary password".)
+
+      **This applies to the seeded administrator too**: `admin@frema.local` was created with a
+      temporary password, so its next sign-in will ask for a new one.
+
+**Route administration — API** (`Features/Workflow/WorkflowDefinitionEndpoints`):
+
+- **Versioning.** A route no document has used is edited in place. A route that has been used
+  is never changed: saving creates the next version, retires the old one, and moves the
+  default flag across. Documents already on the old version finish on it. Verified: editing
+  the in-use default produced v2 (3 steps), v1 was kept with its 2 steps and 3 documents, and a
+  running document still showed v1's route. Editing again through the UI produced v3.
+- Validation returns plain sentences naming the step at fault, e.g. *"Step 1 ('Dept step')
+  assigns to a department, but none is chosen."*
+- There is always exactly one default. The active default cannot be deactivated or deleted,
+  and a route that documents have used cannot be deleted — it can only be deactivated.
+- A retired version cannot be reactivated alongside its newer version.
+- Route selection verified: an Invoice document picked the Invoice route. Submitting it was
+  refused because no user has the Manager role yet, which is the correct response.
+
+**Bug found while testing:** the app's database connection retries on transient failures,
+and that retry mechanism rejects transactions opened manually. Editing a route that was in
+use returned a 500, though the transaction rolled back and nothing was changed. Both
+multi-step writes now run inside `InRetriableTransactionAsync`, so a retry repeats the whole
+operation.
+
+**Server-side follow-up — done.** `SubmitAsync` now rejects a returned document that still
+has an open assignment (409), so resume-not-restart is enforced by the server itself, not
+only by the UI.
+
+> Known gap: the step editor's role picker reads `/api/roles`, which requires `admin.roles`.
+> An administrator with `admin.settings` but not `admin.roles` cannot assign a step to a
+> role. It works today only because the Administrator role has every permission.
 - [x] **Document detail** — workflow trail, decision panel with recipient picker, comment
       thread, and file attach/open/download
 - [x] **Toasts** — reporting the server's own ProblemDetails wording, so a user reads
@@ -591,6 +757,18 @@ Radix/shadcn (framework-agnostic), and the scanner is pure browser APIs.
 - [ ] Generate `lib/types.ts` from the OpenAPI document rather than hand-maintaining it
 - [x] Auth: `/bff/login` redirect, session from `/bff/user`, profile from `/api/users/me`
 - [x] Permissions from the server's claims, not a hardcoded client map
+- [x] **Loading states** — a top loading bar driven by every tracked request (shown only if a
+      request takes over 150 ms; notification polling excluded), and page-shaped skeletons for
+      the signed-in shell, dashboard, inbox, documents (rows and folder tree), document detail,
+      reports, workflows, users, roles, audit, reference data, settings and the notification
+      list. Refetches keep existing content on screen (dimmed on Documents and Reports) rather
+      than flashing back to a skeleton.
+- [x] **Toasts, extended** — enter/exit animation (off with reduced motion), at most four on
+      screen, identical messages shown once, optional action button. Page loads that fail now
+      show a toast (previously the page stayed blank). An unreachable server gets its own
+      message. **Expired session:** one persistent "Your session has ended" toast with
+      "Sign in again", and no automatic redirect, so work in progress is not thrown away.
+      Verified in Chromium with responses slowed to 2–3 s, a forced 500 and forced 401s.
 - [ ] Retire the Next.js app once parity is reached
 
 **A full workflow action completed through the UI**, driven in Chromium: opened a returned

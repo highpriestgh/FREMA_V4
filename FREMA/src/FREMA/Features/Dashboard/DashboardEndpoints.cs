@@ -119,7 +119,8 @@ public static class DashboardEndpoints
         var recentActivity = user.HasPermission(Permissions.ViewAudit)
             ? await db.AuditLogs.AsNoTracking()
                 .OrderByDescending(a => a.Id)
-                .Take(15)
+                // Enough for the dashboard to page through, five at a time.
+                .Take(50)
                 .Select(a => new ActivityDto(
                     a.Action,
                     a.UserName,

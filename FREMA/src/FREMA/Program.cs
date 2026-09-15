@@ -7,6 +7,8 @@ using FREMA.Features.Dashboard;
 using FREMA.Features.Documents;
 using FREMA.Features.Folders;
 using FREMA.Features.Navigation;
+using FREMA.Features.Reports;
+using FREMA.Features.Settings;
 using FREMA.Features.Roles;
 using FREMA.Features.Users;
 using FREMA.Features.Workflow;
@@ -14,7 +16,9 @@ using FREMA.Identity;
 using FREMA.Infrastructure.Auditing;
 using FREMA.Infrastructure.Authorization;
 using FREMA.Infrastructure.Persistence;
+using FREMA.Infrastructure.Reminders;
 using FREMA.Infrastructure.Seeding;
+using FREMA.Infrastructure.Settings;
 using FREMA.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -202,6 +206,10 @@ foreach (var permission in Permissions.All)
 // --- Application services --------------------------------------------------
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<WorkflowEngine>();
+builder.Services.AddSingleton<ISettingsService, SettingsService>();
+builder.Services.AddScoped<DocumentNumberGenerator>();
+builder.Services.AddScoped<ReminderJob>();
+builder.Services.AddHostedService<ReminderHostedService>();
 
 // --- File storage ----------------------------------------------------------
 // Validated at startup, so a misconfigured root fails the deployment rather than the
@@ -225,6 +233,15 @@ builder.Services
     .ValidateOnStart();
 
 builder.Services.AddSingleton<IDocumentStorage, LocalDiskDocumentStorage>();
+
+// The web server rejects request bodies over ~28 MB by default, before the application sees
+// them — an upload the Settings page allows would fail with a bare 413. Both limits are raised
+// to the configured ceiling (plus room for multipart framing); the working limit an
+// administrator chooses is then enforced by the storage layer with a readable message.
+var uploadCeiling = builder.Configuration.GetValue<long?>("Storage:MaxFileSizeBytes") ?? 200L * 1024 * 1024;
+builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = uploadCeiling + 1024 * 1024);
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(form =>
+    form.MultipartBodyLengthLimit = uploadCeiling + 1024 * 1024);
 
 builder.Services.AddRazorPages();
 builder.Services.AddScoped<DatabaseSeeder>();
@@ -282,6 +299,9 @@ app.MapFolderEndpoints();
 app.MapNavigationEndpoints();
 app.MapDashboardEndpoints();
 app.MapAuditEndpoints();
+app.MapWorkflowDefinitionEndpoints();
+app.MapReportEndpoints();
+app.MapSettingsEndpoints();
 
 // --- SPA ------------------------------------------------------------------
 // Anything not matched above is a client-side route, so index.html is returned and React

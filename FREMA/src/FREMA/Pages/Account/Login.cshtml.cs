@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Duende.IdentityServer.Services;
 using FREMA.Domain;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -60,11 +61,29 @@ public class LoginModel(
 
         if (user is not null && user.IsActive)
         {
-            var result = await signInManager.PasswordSignInAsync(
-                user, Input.Password, Input.RememberMe, lockoutOnFailure: true);
+            // Check the password without signing in. Signing in first and redirecting to a
+            // change-password page afterwards would be bypassable: the identity-provider
+            // session would already exist, so returning to /bff/login would complete sign-in
+            // with no password change at all.
+            var result = await signInManager.CheckPasswordSignInAsync(
+                user, Input.Password, lockoutOnFailure: true);
+
+            if (result.Succeeded && user.MustChangePassword)
+            {
+                // A short-lived, single-purpose cookie that proves the password was correct
+                // and nothing more. It does not sign the user in — IdentityServer only honours
+                // Identity.Application — so the change page is the only way forward.
+                await HttpContext.SignInAsync(
+                    IdentityConstants.TwoFactorUserIdScheme,
+                    ChangePasswordModel.CreatePendingPrincipal(user.Id));
+
+                logger.LogInformation("User {UserId} must change a temporary password", user.Id);
+                return RedirectToPage("/Account/ChangePassword", new { returnUrl = Input.ReturnUrl });
+            }
 
             if (result.Succeeded)
             {
+                await signInManager.SignInAsync(user, Input.RememberMe);
                 logger.LogInformation("User {UserId} signed in", user.Id);
 
                 user.LastLoginAt = DateTimeOffset.UtcNow;

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useApi } from "@/lib/useApi";
+import { TableRowsSkeleton } from "@/components/layout/PageSkeletons";
 import type { PagedResult } from "@/lib/types";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ export function AuditPage() {
   if (action) query.set("action", action);
   query.set("page", String(page));
 
-  const { data } = useApi<PagedResult<AuditEntry>>(`/api/audit?${query}`, [action, page]);
+  const { data, initialLoading } = useApi<PagedResult<AuditEntry>>(`/api/audit?${query}`, [action, page]);
 
   return (
     <div className="space-y-6">
@@ -63,6 +64,7 @@ export function AuditPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {initialLoading && <TableRowsSkeleton rows={10} columns={5} />}
               {data?.items.map((entry) => (
                 <TableRow key={entry.id}>
                   <TableCell className="text-muted-foreground text-xs whitespace-nowrap">

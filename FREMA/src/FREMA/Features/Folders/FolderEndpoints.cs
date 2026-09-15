@@ -47,13 +47,22 @@ public static class FolderEndpoints
     /// </para>
     /// </summary>
     private static async Task<Ok<IReadOnlyList<FolderDto>>> TreeAsync(
-        FremaDbContext db, CancellationToken ct)
+        FremaDbContext db, ICurrentUser user, CancellationToken ct)
     {
+        var userId = user.RequireUserId();
+        var seesAll = user.HasPermission(Permissions.ViewAllDocuments);
+
+        // Counts use the same visibility rule as the document list. Counting every document
+        // would tell someone how many documents they cannot see are filed in each folder.
+        var visible = db.Documents.Where(d => seesAll
+            || d.UploadedById == userId
+            || d.Routings.Any(r => r.AssignedToId == userId || r.RoutedById == userId));
+
         var rows = await db.Folders.AsNoTracking()
             .OrderBy(f => f.Name)
             .Select(f => new Row(
                 f.Id, f.Name, f.Description, f.Icon, f.ParentId,
-                db.Documents.Count(d => d.FolderId == f.Id)))
+                visible.Count(d => d.FolderId == f.Id)))
             .ToListAsync(ct);
 
         var byParent = rows

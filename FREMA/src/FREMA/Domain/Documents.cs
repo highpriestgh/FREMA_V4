@@ -132,6 +132,9 @@ public class WorkflowRouting
 
     /// <summary>Set when the assignee approves, rejects or reviews.</summary>
     public DateTimeOffset? ActedAt { get; set; }
+
+    /// <summary>When a due-soon or overdue reminder was last sent for this assignment.</summary>
+    public DateTimeOffset? LastReminderAt { get; set; }
 }
 
 /// <summary>A review comment on a document. Equivalent to the legacy <c>DocumentToComment</c>.</summary>

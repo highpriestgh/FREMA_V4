@@ -19,6 +19,8 @@ public sealed record RoleDto(
     int UserCount,
     IReadOnlyList<string> Permissions);
 
+public sealed record RoleLookupDto(Guid Id, string Name);
+
 public sealed record PermissionDto(Guid Id, string Name, string DisplayName, string? Description, string Category);
 
 public sealed record SaveRoleRequest(string Name, string? Description, IReadOnlyList<string> Permissions);
@@ -31,6 +33,15 @@ public static class RoleEndpoints
         group.AsBffApiEndpoint();
 
         group.MapGet("/", ListAsync).RequireAuthorization(Permissions.ManageRoles);
+
+        // Names only, for pickers: assigning a role to a user or to a workflow step should not
+        // require the right to redefine what roles are allowed to do.
+        group.MapGet("/lookup", async (FremaDbContext db, CancellationToken ct) =>
+            TypedResults.Ok(await db.Roles.AsNoTracking()
+                .OrderBy(r => r.Name)
+                .Select(r => new RoleLookupDto(r.Id, r.Name!))
+                .ToListAsync(ct)))
+            .RequireAuthorization();
         group.MapGet("/{id:guid}", GetAsync).RequireAuthorization(Permissions.ManageRoles);
         group.MapPost("/", CreateAsync).RequireAuthorization(Permissions.ManageRoles);
         group.MapPut("/{id:guid}", UpdateAsync).RequireAuthorization(Permissions.ManageRoles);
