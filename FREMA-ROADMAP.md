@@ -9,6 +9,8 @@
 > cookies) done the same day. Email and SMS notifications (#6) moved to the end of the plan
 > pending the owner's choice of providers.
 
+**Working order:** see [Build order](#build-order), a single numbered list of every step.
+
 **Priority key**
 
 | | Meaning |
@@ -268,22 +270,86 @@ dashboard, reports, and users, roles and permissions.
 
 ---
 
-## Suggested order of work
+## Build order
 
-*Dates and release grouping are in [Delivery timeline](#delivery-timeline).*
+> **The order we work in.** One step at a time, top to bottom; mark a step ✅ and move ▶ on when it lands.
+> Item numbers (#) point to the detailed entries above. Dates are in
+> [Delivery timeline](#delivery-timeline). **▶ marks the next step.**
 
-1. **Items 1–2** while starting **4 (recycle bin)**, which is small and removes the biggest
-   data-loss risk.
-2. **3 (versions)** with **10 (check-out)**, since check-in creates a version.
-3. **5 (search + OCR)**, then **8 (metadata)** so search has fields to filter on.
-4. **29 (escalation)**, **7 (classification and sharing)** and **9 (retention)**.
-5. **28 (email capture)** and **30 (automatic tagging)**, which build on 5 and 8.
-   **35 (Scan Agent):** run its hardware spike early, alongside step 1, since its outcome
-   decides the rest; build it out after **3** and **4**, since scanned uploads become versions.
-6. The remaining P1 engineering items alongside, then P2 by demand. **31**, **33** and **15**
-   are small and can be picked up any time.
-7. **Last: 6 (email and SMS notifications)**, once the owner has chosen the providers. If that
-   happens sooner, it can be pulled forward; it has no dependencies beyond the reminder job.
+**Started now, by the owner, in parallel** (each has a lead time):
+- [ ] Rotate leaked credentials (#1)
+- [ ] Decide where FREMA will be hosted (IIS or other); blocks backups (step 12) and go-live
+- [ ] List the office scanner models; needed for the hardware spike (step 5)
+- [ ] Choose email and SMS providers; needed only at the very end (R6)
+
+### R1 — Go-live
+
+| Step | Item | Work | Why here |
+|---|---|---|---|
+| 1 | #0 | ~~Move sign-in off Duende~~ ✅ done 2026-10-23 | Removed the licence blocker |
+| ▶ 2 | #12 | Update the rebuild plan | Half an hour; the plan should match the code before anything else changes |
+| 3 | #11 | Auth hardening: rate limits, real names, deactivated users, legacy bug review | Small, and finishes the sign-in work while it is fresh |
+| 4 | #22 | CI pipeline | Every later change is then built and checked on push |
+| 5 | #35 | Scan Agent hardware spike | Early, because its result decides how big R3 is |
+| 6 | #2 | Test harness, workflow and permission tests | The safety net before documents and files start changing |
+| 7 | #4 | Recycle bin | Removes the biggest data-loss risk, and is small |
+| 8 | #3, #10 | Version history with check-out | Together, because check-in creates a version |
+| 9 | #5 | Search with OCR | The largest R1 item; needs versions in place to index the right file |
+| 10 | #29 | Workflow escalation | Covers for the lack of email until R6 |
+| 11 | #21 | Virus scanning on upload | Before real users upload real files |
+| 12 | #13 | Backups and encryption at rest | Needs the hosting decision |
+| 13 | — | User testing, fixes, production deployment, training | **Go-live** |
+
+### R2 — Records
+
+| Step | Item | Work | Why here |
+|---|---|---|---|
+| 14 | #15 | Duplicate detection | Nearly free: the file hash is already stored |
+| 15 | #8 | Custom metadata fields and tags | Search, tagging, forms and retention all build on it |
+| 16 | #30 | Automatic tagging on upload | Needs OCR text (#5) and fields (#8) |
+| 17 | #7 | Confidentiality and per-document sharing | Changes the access rule, so after the tests and before more features |
+| 18 | #9 | Retention schedules and legal hold | Needs document types with fields; schedules come from records staff |
+| 19 | #31 | Saved searches and smart views | Small, and uses the new fields |
+| 20 | #28 | Email capture | Needs a mailbox to read from |
+
+### R3 — Scanning
+
+| Step | Item | Work | Why here |
+|---|---|---|---|
+| 21 | #26 | Realtime updates (SignalR) | The Scan Agent uses it to tell the page a scan arrived |
+| 22 | #35 | Scan Agent: server side, agent MVP, upload page, packaging | The flagship feature |
+| 23 | #35 | Scan Agent: profiles, clean-up, local OCR, QR batch splitting, offline queue | What makes it stand out |
+| 24 | #33 | Scan-to-folder intake | For network copiers; reuses the agent's intake queue |
+
+### R4 — Productivity
+
+| Step | Item | Work | Why here |
+|---|---|---|---|
+| 25 | #14 | Annotations | The data model already exists |
+| 26 | #18 | Approval stamp and e-signature | Builds on annotations' PDF handling |
+| 27 | #19 | Related documents | Small |
+| 28 | #16 | Bulk actions | Easier once fields and sharing exist |
+| 29 | #17 | Previews for non-PDF files | |
+| 30 | #20 | Export reports and audit to CSV / PDF | |
+| 31 | #32 | Electronic forms that start a workflow | Largest R4 item; reuses #8 fields |
+
+### R5 — Polish
+
+| Step | Item | Work |
+|---|---|---|
+| 32 | #34 | Mobile-friendly approvals |
+| 33 | #23 | Favourites and recently viewed |
+| 34 | #24 | Watermarks and download controls |
+| 35 | #25 | Document templates |
+| 36 | #27 | Retire the Next.js prototype |
+
+### R6 — Notifications
+
+| Step | Item | Work |
+|---|---|---|
+| 37 | #6 | Notification interface and background queue |
+| 38 | #6 | Per-user channel preferences |
+| 39 | #6 | Email, SMS and web-push senders for the chosen providers |
 
 ---
 
