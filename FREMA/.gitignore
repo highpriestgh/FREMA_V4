@@ -485,5 +485,8 @@ $RECYCLE.BIN/
 src/FREMA/wwwroot/
 src/FREMA/ClientApp/node_modules/
 src/FREMA/ClientApp/dist/
-storage/
+# Uploaded documents (the storage root). Anchored with a leading slash: unanchored, this also
+# matched src/FREMA/Infrastructure/Storage/ (Git ignores case on Windows), so that source
+# folder was never committed.
+/storage/
 .vs/
