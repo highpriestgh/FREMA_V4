@@ -6,7 +6,8 @@
 > Created 2026-10-23. Items 28–34 added the same day from a review of other document systems
 > (see [Market research](#market-research) at the bottom). Item 35 (our own Scan Agent) added
 > after evaluating Asprise Scanner.js. Item 0 (sign-in moved off Duende to ASP.NET Identity
-> cookies) done the same day.
+> cookies) done the same day. Email and SMS notifications (#6) moved to the end of the plan
+> pending the owner's choice of providers.
 
 **Priority key**
 
@@ -75,12 +76,6 @@ dashboard, reports, and users, roles and permissions.
   This also fills `Document.PageCount`.
 
 ## P1 — Next
-
-- [ ] **6. Email delivery for notifications and reminders** · `feature` · effort: M
-  Reminders and notifications are in-app only, so people who aren't logged in never hear about
-  work waiting for them (plan §8).
-  *First step:* an `IEmailSender` (MailKit) behind a background queue; call it from
-  `ReminderJob` and the routing notifications.
 
 - [ ] **7. Security classification and per-document sharing** · `feature` · effort: M
   Access is "uploader or anyone in the routing". There is no way to mark a document
@@ -250,6 +245,27 @@ dashboard, reports, and users, roles and permissions.
 - [ ] **26. Realtime updates with SignalR** · `eng` · effort: M — plan §8
 - [ ] **27. Retire the Next.js prototype** · `eng` · effort: S — once parity is confirmed
 
+## Last — Waiting on a provider decision
+
+- [ ] **6. Email and SMS notifications** · `feature` · effort: M · *deferred 2026-10-23*
+  Notifications and reminders are in-app only, so people who aren't signed in don't hear about
+  work waiting for them (plan §8). Moved to the end of the plan on purpose: the owner is
+  choosing the email and SMS providers, and the work starts once that choice is made.
+  Until then, in-app notifications and escalation (#29) carry the load.
+  **Options researched:**
+  - *Email:* MailKit (MIT) through the organisation's existing mail account (Microsoft 365,
+    Google Workspace or its own server); Mailpit (MIT) as a local test inbox. Self-hosting
+    Postal (MIT) is possible but means owning deliverability (SPF, DKIM, IP reputation).
+  - *SMS:* an Android phone acting as a gateway, using SMS Gateway for Android (Apache 2.0) or
+    textbee (MIT). It sends from a SIM bundle, slowly, and from a phone number rather than a
+    sender name. Or Jasmin / Kannel with an SMPP account from a mobile network at high volume.
+    Or a commercial aggregator such as AfricasTalking.
+  - *Web push:* free browser notifications via the open Web Push standard; pairs with #34.
+  *First step once the providers are chosen:* one notification interface with a sender per
+  channel (email, SMS, push), sent from a background queue so a slow gateway never holds up a
+  request, plus per-user channel preferences. Calls from `ReminderJob` and the routing
+  notifications go through it.
+
 ---
 
 ## Suggested order of work
@@ -260,13 +276,14 @@ dashboard, reports, and users, roles and permissions.
    data-loss risk.
 2. **3 (versions)** with **10 (check-out)**, since check-in creates a version.
 3. **5 (search + OCR)**, then **8 (metadata)** so search has fields to filter on.
-4. **6 (email notifications)**, **29 (escalation)**, **7 (classification and sharing)** and
-   **9 (retention)**.
+4. **29 (escalation)**, **7 (classification and sharing)** and **9 (retention)**.
 5. **28 (email capture)** and **30 (automatic tagging)**, which build on 5 and 8.
    **35 (Scan Agent):** run its hardware spike early, alongside step 1, since its outcome
    decides the rest; build it out after **3** and **4**, since scanned uploads become versions.
 6. The remaining P1 engineering items alongside, then P2 by demand. **31**, **33** and **15**
    are small and can be picked up any time.
+7. **Last: 6 (email and SMS notifications)**, once the owner has chosen the providers. If that
+   happens sooner, it can be pulled forward; it has no dependencies beyond the reminder job.
 
 ---
 
@@ -280,13 +297,15 @@ Sizes: XS ≈ ½ day, S ≈ 2–3 days, M ≈ 1½–2 weeks, L ≈ 3–4 weeks, 
 
 | Release | Items | Effort | Duration | Target |
 |---|---|---|---|---|
-| **R1 — Go-live (v1.0)** | 0 (done), 1, 2, 3, 4, 5, 6, 10, 11, 12, 13, 21, 22, 29, #35 hardware spike, user testing and deployment | ~70 dev-days | ~20 weeks | late Mar 2027 |
-| **R2 — Records** | 7, 8, 9, 15, 28, 30, 31 | ~42 dev-days | ~13 weeks | late Jun 2027 |
-| **R3 — Scanning** | 26, 33, 35 | ~56 dev-days | ~17 weeks | late Oct 2027 |
-| **R4 — Productivity** | 14, 16, 17, 18, 19, 20, 32 | ~51 dev-days | ~15 weeks | early Mar 2028 |
-| **R5 — Polish** | 23, 24, 25, 27, 34 | ~24 dev-days | ~7 weeks | late Apr 2028 |
+| **R1 — Go-live (v1.0)** | 0 (done), 1, 2, 3, 4, 5, 10, 11, 12, 13, 21, 22, 29, #35 hardware spike, user testing and deployment | ~64 dev-days | ~18 weeks | mid Mar 2027 |
+| **R2 — Records** | 7, 8, 9, 15, 28, 30, 31 | ~42 dev-days | ~13 weeks | mid Jun 2027 |
+| **R3 — Scanning** | 26, 33, 35 | ~56 dev-days | ~17 weeks | mid Oct 2027 |
+| **R4 — Productivity** | 14, 16, 17, 18, 19, 20, 32 | ~51 dev-days | ~15 weeks | late Feb 2028 |
+| **R5 — Polish** | 23, 24, 25, 27, 34 | ~24 dev-days | ~7 weeks | mid Apr 2028 |
+| **R6 — Notifications** | 6, once the providers are chosen | ~6 dev-days | ~2 weeks | late Apr 2028 |
 
-**One developer:** ~18 months, finishing around April 2028.
+**One developer:** ~18 months, finishing around April 2028. Moving notifications to the end
+shortens go-live by about two weeks but does not change the overall finish.
 **Two developers:** ~11 months, finishing around September 2027. One builds R3 (Scan Agent) while
 the other does R2 then R4, after both finish R1 together. Not half, because of coordination and review.
 
@@ -299,9 +318,9 @@ the other does R2 then R4, after both finish R1 together. Not half, because of c
 | 3–4 | Test harness and workflow / permission tests (2) |
 | 5–7 | Recycle bin (4), then version history with check-out (3, 10) |
 | 8–11 | Search with OCR (5) |
-| 12–14 | Email notifications (6), escalation (29), virus scanning (21), backups (13) |
-| 15–17 | User acceptance testing, fixes, production deployment, training |
-| 18–20 | Contingency and the Christmas break |
+| 12–13 | Escalation (29), virus scanning (21), backups (13) |
+| 14–16 | User acceptance testing, fixes, production deployment, training |
+| 17–18 | Contingency and the Christmas break |
 
 ### Risks to the dates
 
@@ -312,7 +331,10 @@ the other does R2 then R4, after both finish R1 together. Not half, because of c
 - **Scanner hardware:** old 32-bit TWAIN drivers could add 1–3 weeks to R3; the week-2 spike
   is there to find out early.
 - **Scope lever:** if go-live can ship without OCR search (5), R1 finishes ~5 weeks earlier,
-  around mid-February 2027, and search moves to R2.
+  around early February 2027, and search moves to R2.
+- **Go-live without email or SMS:** staff only see notifications while signed in. Escalation
+  (#29) and the dashboard's overdue counts soften this; confirm it is acceptable during user
+  testing.
 
 ---
 
