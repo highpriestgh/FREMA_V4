@@ -109,7 +109,7 @@ dashboard, reports, and users, roles and permissions.
   check interval or check `IsActive` on validation); confirm which old auth bugs (plan §3.4)
   do not apply to the new code and tick them off.
 
-- [ ] **12. Bring the rebuild plan up to date** · `eng` · effort: XS
+- [x] **12. Bring the rebuild plan up to date** · `eng` · effort: XS
   Tick the reminder job (§8) and the document-number question (§1.3), which are done in code.
 
 - [ ] **13. Backups and encryption at rest** · `eng` · effort: S
@@ -287,8 +287,8 @@ dashboard, reports, and users, roles and permissions.
 | Step | Item | Work | Why here |
 |---|---|---|---|
 | 1 | #0 | ~~Move sign-in off Duende~~ ✅ done 2026-10-23 | Removed the licence blocker |
-| ▶ 2 | #12 | Update the rebuild plan | Half an hour; the plan should match the code before anything else changes |
-| 3 | #11 | Auth hardening: rate limits, real names, deactivated users, legacy bug review | Small, and finishes the sign-in work while it is fresh |
+| 2 | #12 | ~~Update the rebuild plan~~ ✅ done 2026-10-23 | The plan should match the code before anything else changes |
+| ▶ 3 | #11 | Auth hardening: rate limits, real names, deactivated users, legacy bug review | Small, and finishes the sign-in work while it is fresh |
 | 4 | #22 | CI pipeline | Every later change is then built and checked on push |
 | 5 | #35 | Scan Agent hardware spike | Early, because its result decides how big R3 is |
 | 6 | #2 | Test harness, workflow and permission tests | The safety net before documents and files start changing |
