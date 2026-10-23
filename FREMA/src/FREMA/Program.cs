@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using FREMA.Common;
 using FREMA.Domain;
 using FREMA.Features.Account;
@@ -71,7 +72,14 @@ builder.Services
         options.SignIn.RequireConfirmedEmail = false;
     })
     .AddEntityFrameworkStores<FremaDbContext>()
+    .AddSignInManager<FremaSignInManager>()
     .AddDefaultTokenProviders();
+
+// How often a session cookie is re-checked against the database: a changed password or a
+// deactivated account (FremaSignInManager) ends the session within this window. Identity's
+// default is 30 minutes; one lookup per user per minute is cheap.
+builder.Services.Configure<SecurityStampValidatorOptions>(options =>
+    options.ValidationInterval = TimeSpan.FromMinutes(1));
 
 // --- Authentication --------------------------------------------------------
 // The session is ASP.NET Identity's own application cookie, set by the sign-in page. The SPA
@@ -95,6 +103,44 @@ builder.Services.ConfigureApplicationCookie(options =>
     // status code. Only page requests are redirected.
     options.Events.OnRedirectToLogin = context => ApiAwareRedirect(context, StatusCodes.Status401Unauthorized);
     options.Events.OnRedirectToAccessDenied = context => ApiAwareRedirect(context, StatusCodes.Status403Forbidden);
+});
+
+// --- Rate limiting ---------------------------------------------------------
+// Account lockout (5 wrong passwords → 15 minutes) stops guessing one account's password. This
+// stops one source trying many accounts. Only the password-posting forms are limited, per IP
+// address. The default is deliberately generous, because an office behind one public address
+// shares a single bucket. Behind a reverse proxy, configure forwarded headers first, or every
+// request appears to come from the proxy.
+var signInAttemptsPerMinute = builder.Configuration.GetValue("Security:SignInAttemptsPerMinute", 30);
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        HttpMethods.IsPost(context.Request.Method)
+        && (context.Request.Path.StartsWithSegments("/Account/Login")
+            || context.Request.Path.StartsWithSegments("/Account/ChangePassword"))
+            ? RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = signInAttemptsPerMinute,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                })
+            : RateLimitPartition.GetNoLimiter("unlimited"));
+
+    // Back to the same page with a readable message, rather than a bare 429 error page. The
+    // form posts to its own URL, so the query string still carries the return URL.
+    options.OnRejected = (context, _) =>
+    {
+        var request = context.HttpContext.Request;
+        context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>()
+            .LogWarning("Sign-in rate limit reached for {IpAddress}", context.HttpContext.Connection.RemoteIpAddress);
+
+        var query = QueryString.FromUriComponent(request.QueryString.Value ?? "").Add("throttled", "true");
+        context.HttpContext.Response.Redirect($"{request.PathBase}{request.Path}{query}");
+        return ValueTask.CompletedTask;
+    };
 });
 
 static Task ApiAwareRedirect(RedirectContext<CookieAuthenticationOptions> context, int apiStatus)
@@ -222,6 +268,7 @@ app.UseHttpsRedirection();
 app.UseSerilogRequestLogging();
 app.UseStaticFiles();
 app.UseRouting();
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAntiforgeryHeader();

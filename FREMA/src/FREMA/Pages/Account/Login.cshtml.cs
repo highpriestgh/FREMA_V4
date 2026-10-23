@@ -39,11 +39,21 @@ public class LoginModel(
         public string? ReturnUrl { get; set; }
     }
 
-    public IActionResult OnGet(string? returnUrl = null)
+    public IActionResult OnGet(string? returnUrl = null, bool throttled = false)
     {
         Input.ReturnUrl = returnUrl;
+
+        // Set by the rate limiter in Program.cs when this network has made too many attempts.
+        if (throttled)
+        {
+            ModelState.AddModelError(string.Empty, ThrottledMessage);
+        }
+
         return Page();
     }
+
+    public const string ThrottledMessage =
+        "Too many sign-in attempts from this network. Wait a minute, then try again.";
 
     public async Task<IActionResult> OnPostAsync()
     {

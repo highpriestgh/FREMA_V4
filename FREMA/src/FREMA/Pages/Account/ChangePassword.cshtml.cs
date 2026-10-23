@@ -57,11 +57,16 @@ public class ChangePasswordModel(
             ],
             IdentityConstants.TwoFactorUserIdScheme));
 
-    public async Task<IActionResult> OnGetAsync(string? returnUrl = null)
+    public async Task<IActionResult> OnGetAsync(string? returnUrl = null, bool throttled = false)
     {
         if (await PendingUserAsync() is null)
         {
-            return RedirectToPage("/Account/Login", new { returnUrl });
+            return RedirectToPage("/Account/Login", new { returnUrl, throttled = throttled ? true : (bool?)null });
+        }
+
+        if (throttled)
+        {
+            ModelState.AddModelError(string.Empty, LoginModel.ThrottledMessage);
         }
 
         Input.ReturnUrl = returnUrl;

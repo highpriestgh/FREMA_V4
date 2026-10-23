@@ -90,6 +90,12 @@ API share an origin, so the cookie is all a request needs, plus the `X-CSRF: 1` 
 anything that changes data (`Infrastructure/Authorization/AntiforgeryHeader.cs`). API calls
 without a session get a 401 rather than a redirect, so the SPA can send the browser to sign in.
 
+Sessions are re-checked against the database every minute, so a changed password or a
+deactivated account (`FremaSignInManager`) ends the session within that time. Sign-in and
+password-change posts are rate-limited per IP address: `Security:SignInAttemptsPerMinute`,
+default 30, on top of a 15-minute lockout after 5 wrong passwords for one account. Behind a
+reverse proxy, set up forwarded headers before relying on the per-IP limit.
+
 This replaced an embedded Duende IdentityServer + BFF in October 2026, which needed a paid
 licence in production. If single sign-on for other applications is ever needed, OpenIddict
 (Apache 2.0) can be added on top of the same Identity user store.

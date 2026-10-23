@@ -102,12 +102,15 @@ dashboard, reports, and users, roles and permissions.
   *First step:* `CheckedOutById` / `CheckedOutAt`; check-out, check-in (creates a version, see 3)
   and admin force-release.
 
-- [ ] **11. Auth hardening: rate limiting, display name, legacy bug review** · `eng` · effort: S
-  Rate-limit `POST /Account/Login` and `/Account/ChangePassword`; add the user's first and last
-  name to the session's claims (a custom `UserClaimsPrincipalFactory`) so the `name` claim is
-  not the username; end sessions of deactivated users promptly (shorten the security-stamp
-  check interval or check `IsActive` on validation); confirm which old auth bugs (plan §3.4)
-  do not apply to the new code and tick them off.
+- [x] **11. Auth hardening: rate limiting, deactivated users, legacy bug review** · `eng` · done 2026-10-23
+  - Sign-in and password-change posts limited per IP (`Security:SignInAttemptsPerMinute`,
+    default 30), with a "wait a minute" message on the page.
+  - Deactivated users are refused at sign-in, and an existing session ends within a minute
+    (`FremaSignInManager`; cookie revalidation every minute). Before this, a deactivated
+    user's session kept sliding for as long as they used it.
+  - Old auth bugs reviewed: all fixed or not applicable (plan §3.4).
+  - *Dropped:* names in the session claims. Screens already show full names from the
+    profile, and the audit log is better off recording the unique username.
 
 - [x] **12. Bring the rebuild plan up to date** · `eng` · effort: XS
   Tick the reminder job (§8) and the document-number question (§1.3), which are done in code.
@@ -288,8 +291,8 @@ dashboard, reports, and users, roles and permissions.
 |---|---|---|---|
 | 1 | #0 | ~~Move sign-in off Duende~~ ✅ done 2026-10-23 | Removed the licence blocker |
 | 2 | #12 | ~~Update the rebuild plan~~ ✅ done 2026-10-23 | The plan should match the code before anything else changes |
-| ▶ 3 | #11 | Auth hardening: rate limits, real names, deactivated users, legacy bug review | Small, and finishes the sign-in work while it is fresh |
-| 4 | #22 | CI pipeline | Every later change is then built and checked on push |
+| 3 | #11 | ~~Auth hardening: rate limits, deactivated users, legacy bug review~~ ✅ done 2026-10-23 | Finished the sign-in work while it was fresh |
+| ▶ 4 | #22 | CI pipeline | Every later change is then built and checked on push |
 | 5 | #35 | Scan Agent hardware spike | Early, because its result decides how big R3 is |
 | 6 | #2 | Test harness, workflow and permission tests | The safety net before documents and files start changing |
 | 7 | #4 | Recycle bin | Removes the biggest data-loss risk, and is small |
