@@ -252,6 +252,10 @@ if (args.Contains("--reset-admin-password"))
 }
 
 // --- Pipeline --------------------------------------------------------------
+// Request logging wraps the exception handler, so it records the status the client actually
+// received. Inside it, every domain refusal (403/404/409/422) was logged as an error 500,
+// because the logger saw the exception before the handler turned it into ProblemDetails.
+app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
@@ -265,7 +269,6 @@ else
 }
 
 app.UseHttpsRedirection();
-app.UseSerilogRequestLogging();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseRateLimiter();

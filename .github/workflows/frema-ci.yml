@@ -39,6 +39,23 @@ jobs:
     env:
       DOTNET_NOLOGO: "true"
       DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+      # The integration tests create, seed and drop their own database on this server. The
+      # password only protects a throwaway container that lives for this job.
+      FREMA_TEST_SQL: "Server=localhost,1433;User Id=sa;Password=CiTest-Passw0rd2026;TrustServerCertificate=True;Encrypt=False"
+    services:
+      sql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "CiTest-Passw0rd2026"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P CiTest-Passw0rd2026 -C -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 20s
     steps:
       - uses: actions/checkout@v5
 
@@ -54,8 +71,10 @@ jobs:
       - name: Build (warnings are errors)
         run: dotnet build FREMA.slnx --no-restore --configuration Release
 
+      # Workflow rules, document visibility, and a sweep of every /api endpoint for missing
+      # authorization, against the real app and a real SQL Server.
       - name: Test
-        run: dotnet test FREMA.slnx --no-build --configuration Release
+        run: dotnet test FREMA.slnx --no-build --configuration Release --logger "console;verbosity=normal"
 
       # Fails if someone changed the domain model without adding a migration. Only the model
       # is built; nothing connects to the placeholder connection string.

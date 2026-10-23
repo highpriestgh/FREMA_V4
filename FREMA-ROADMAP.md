@@ -52,11 +52,19 @@ dashboard, reports, and users, roles and permissions.
   the old solution is still running anywhere.
   *First step:* raise it with whoever owns the infrastructure.
 
-- [ ] **2. Tests for workflow, permissions and endpoint protection** · `eng` · effort: M
-  [UnitTest1.cs](FREMA/tests/FREMA.Tests/UnitTest1.cs) is the empty template. The features
-  below change documents, files and access rules, so they need a safety net first.
-  *First step:* `WebApplicationFactory` + LocalDB/Testcontainers; cover approve/decline/return,
-  the visibility rule, and a test that every endpoint rejects a caller without its permission.
+- [x] **2. Tests for workflow, permissions and endpoint protection** · `eng` · done 2026-10-23
+  19 integration tests in `FREMA/tests/FREMA.Tests`, against the real app and a throwaway SQL
+  Server database (LocalDB locally, a container in CI):
+  - *Workflow (12):* full approval, return to sender, resume without restart, rejection needs a
+    reason, only the current assignee acts, unanimous and any-one steps, review-only steps,
+    department-restricted recipients, most-specific route selection.
+  - *Visibility (3):* read, edit and delete rules.
+  - *Endpoint protection (4):* every `/api` endpoint declares authorization, refuses anonymous
+    callers and users without its permission; writes need `X-CSRF`.
+  Writing them found that every refused request (403/404/409/422) was logged as an error 500;
+  fixed by moving request logging outside the exception handler.
+  *Not yet covered:* file upload and download, and the cookie sign-in flow (checked by hand
+  in step 1). Add them as those areas change (steps 8 and 22).
 
 - [ ] **3. Version history** · `feature` · effort: M
   Replacing content currently deletes the old blob, so earlier versions are lost. A DMS is
@@ -295,9 +303,9 @@ dashboard, reports, and users, roles and permissions.
 | 2 | #12 | ~~Update the rebuild plan~~ ✅ done 2026-10-23 | The plan should match the code before anything else changes |
 | 3 | #11 | ~~Auth hardening: rate limits, deactivated users, legacy bug review~~ ✅ done 2026-10-23 | Finished the sign-in work while it was fresh |
 | 4 | #22 | ~~CI pipeline~~ ✅ done 2026-10-23 | Every later change is now built and checked on push |
-| ▶ 5 | #35 | Scan Agent hardware spike | Early, because its result decides how big R3 is |
-| 6 | #2 | Test harness, workflow and permission tests | The safety net before documents and files start changing |
-| 7 | #4 | Recycle bin | Removes the biggest data-loss risk, and is small |
+| 5 | #35 | Scan Agent hardware spike — ⏸ *waiting on the office scanner models* | Early, because its result decides how big R3 is |
+| 6 | #2 | ~~Test harness, workflow and permission tests~~ ✅ done 2026-10-23 | The safety net before documents and files start changing |
+| ▶ 7 | #4 | Recycle bin | Removes the biggest data-loss risk, and is small |
 | 8 | #3, #10 | Version history with check-out | Together, because check-in creates a version |
 | 9 | #5 | Search with OCR | The largest R1 item; needs versions in place to index the right file |
 | 10 | #29 | Workflow escalation | Covers for the lack of email until R6 |

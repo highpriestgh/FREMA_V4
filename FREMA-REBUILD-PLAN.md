@@ -888,10 +888,13 @@ the type-stripping subset that Node can run natively.
 
 The old solution has **no tests at all**.
 
-- [ ] Unit tests: approval/decline state transitions, routing advancement, permission resolution
-- [ ] Integration tests: `WebApplicationFactory` + Testcontainers (SQL Server), covering the
-      BFF login flow, authorization on every endpoint, and file upload/download
-- [ ] A test asserting no endpoint is reachable without the correct permission
+- [x] Unit tests: approval/decline state transitions, routing advancement, permission resolution
+      — as integration tests through the API (`WorkflowTests`, `VisibilityTests`), 2026-10-23
+- [ ] Integration tests: `WebApplicationFactory` + SQL Server (a service container in CI rather
+      than Testcontainers). *Done:* authorization on every endpoint. *Still to add:* file
+      upload/download, and the cookie sign-in flow (the BFF is gone).
+- [x] A test asserting no endpoint is reachable without the correct permission
+      (`EndpointProtectionTests`, which reads the live route table)
 - [ ] OpenTelemetry traces/metrics
 - [x] CI: build, test, `dotnet ef migrations` drift check, npm build, `npm audit` (`.github/workflows/frema-ci.yml`, 2026-10-23)
 - [ ] Deployment: migrations applied as a deploy step (not at startup), HTTPS + HSTS,

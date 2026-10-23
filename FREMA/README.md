@@ -112,7 +112,7 @@ without code changing. It fails when:
 |---|---|
 | `dotnet restore` | a NuGet package has a known vulnerability (warnings are errors) |
 | `dotnet build` | there is any compiler warning |
-| `dotnet test` | a test fails |
+| `dotnet test` | a test fails (against a SQL Server container) |
 | `dotnet ef migrations has-pending-model-changes` | the domain model changed without a migration |
 | `npm audit --audit-level=high` | a frontend package has a high or critical advisory |
 | `npm run lint`, `npm run build` | lint errors, type errors, or a broken build |
@@ -125,6 +125,30 @@ dotnet build FREMA.slnx -c Release && dotnet test FREMA.slnx -c Release --no-bui
 dotnet ef migrations has-pending-model-changes --project src/FREMA
 cd src/FREMA/ClientApp && npm audit --audit-level=high && npm run lint && npm run build
 ```
+
+### Tests
+
+`tests/FREMA.Tests` runs the real application in memory (`WebApplicationFactory`) against a
+throwaway SQL Server database. Each run creates `FREMA_Test_<guid>`, migrates and seeds it,
+and drops it at the end, so your own database is never touched.
+
+- **Server:** LocalDB by default. Set `FREMA_TEST_SQL` to a connection string *without* a
+  database to use another server; CI does this with a SQL Server container.
+- **Signing in:** a test scheme (`X-Test-User` header) replaces the cookie, so a test can act
+  as any user. Permissions still come from that user's roles via the real claims
+  transformation, and every policy and document check is the production one.
+- **Isolation:** each test creates its own department, document type and users, so tests
+  sharing the database cannot see each other through a department- or type-scoped rule.
+- **More logging:** set `FREMA_TEST_LOG_LEVEL=Information` to see the app's request log.
+
+| Suite | Covers |
+|---|---|
+| `WorkflowTests` | approve, return to sender, resume vs restart, reasons for rejection, only the current assignee may act, unanimous and any-one steps, review-only steps, department-restricted choices, route selection |
+| `VisibilityTests` | who may read, edit and delete a document |
+| `EndpointProtectionTests` | every `/api` endpoint declares authorization, refuses anonymous callers, refuses users without its permission; writes need `X-CSRF` |
+
+The endpoint sweep reads the app's own route table, so a new endpoint is covered the moment
+it is mapped.
 
 ---
 
@@ -186,5 +210,5 @@ src/FREMA/
 ├── Features/            vertical slices — one folder per area
 ├── Pages/               Razor pages for sign-in only
 └── ClientApp/           React SPA
-tests/FREMA.Tests/       (scaffolded; suites still to be written)
+tests/FREMA.Tests/       integration tests (see Tests above)
 ```
