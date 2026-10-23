@@ -150,7 +150,10 @@ by archaeology:
 
 ### 1.4 Licensing
 
-- [ ] **Confirmed as a real blocker for production.** The running app logs, at `ERR`:
+- [x] **Resolved 2026-10-23 by removing Duende.** Sign-in is now ASP.NET Identity's own
+      cookie, so there is no licence to obtain. Sections 3.1 and 3.2 below describe the
+      replaced design; see decision #0 in [FREMA-ROADMAP.md](FREMA-ROADMAP.md).
+      Original note: **Confirmed as a real blocker for production.** The running app logs, at `ERR`:
       *"You do not have a valid license key for the Duende software. This is allowed for
       development and testing scenarios. If you are running in production you are required
       to have a licensed version."* Automatic key management, PAR and the registered client

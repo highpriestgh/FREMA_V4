@@ -1,6 +1,6 @@
-using Duende.Bff;
 using FREMA.Common;
 using FREMA.Domain;
+using FREMA.Infrastructure.Authorization;
 using FREMA.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
@@ -57,7 +57,7 @@ public static class ReportEndpoints
         var reports = app.MapGet("/api/reports", GetAsync)
             .WithTags("Reports")
             .RequireAuthorization(Permissions.ViewReports);
-        reports.AsBffApiEndpoint();
+        reports.RequireAntiforgeryHeader();
 
         return app;
     }

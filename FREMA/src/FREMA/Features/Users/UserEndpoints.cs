@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using Duende.Bff;
 using FREMA.Common;
 using FREMA.Domain;
 using FREMA.Infrastructure.Auditing;
@@ -72,7 +71,7 @@ public static class UserEndpoints
     public static IEndpointRouteBuilder MapUserEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/users").WithTags("Users");
-        group.AsBffApiEndpoint();
+        group.RequireAntiforgeryHeader();
 
         group.MapGet("/", ListAsync).RequireAuthorization(Permissions.ManageUsers);
 
@@ -307,6 +306,7 @@ public static class UserEndpoints
     private static async Task<NoContent> ChangeOwnPasswordAsync(
         ChangePasswordRequest request,
         UserManager<ApplicationUser> userManager,
+        SignInManager<ApplicationUser> signInManager,
         FremaDbContext db,
         IAuditService audit,
         ICurrentUser currentUser,
@@ -330,6 +330,11 @@ public static class UserEndpoints
 
         audit.Record("user.password.changed", AuditEntityType.User, user.Id);
         await db.SaveChangesAsync(ct);
+
+        // Changing the password rotates the security stamp, which invalidates every session the
+        // user holds — including this one, at the next stamp check. Re-issue this one so the
+        // person who just changed it stays signed in while their other sessions end.
+        await signInManager.RefreshSignInAsync(user);
 
         return TypedResults.NoContent();
     }

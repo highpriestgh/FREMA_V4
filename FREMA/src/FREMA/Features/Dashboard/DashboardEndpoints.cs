@@ -1,4 +1,3 @@
-using Duende.Bff;
 using FREMA.Common;
 using FREMA.Domain;
 using FREMA.Infrastructure.Authorization;
@@ -41,7 +40,7 @@ public static class DashboardEndpoints
         var dashboard = app.MapGet("/api/dashboard", GetAsync)
             .WithTags("Dashboard")
             .RequireAuthorization();
-        dashboard.AsBffApiEndpoint();
+        dashboard.RequireAntiforgeryHeader();
 
         return app;
     }

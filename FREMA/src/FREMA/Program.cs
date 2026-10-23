@@ -1,6 +1,6 @@
-using Duende.Bff;
 using FREMA.Common;
 using FREMA.Domain;
+using FREMA.Features.Account;
 using FREMA.Features.Admin;
 using FREMA.Features.Audit;
 using FREMA.Features.Dashboard;
@@ -12,7 +12,6 @@ using FREMA.Features.Settings;
 using FREMA.Features.Roles;
 using FREMA.Features.Users;
 using FREMA.Features.Workflow;
-using FREMA.Identity;
 using FREMA.Infrastructure.Auditing;
 using FREMA.Infrastructure.Authorization;
 using FREMA.Infrastructure.Persistence;
@@ -41,8 +40,6 @@ builder.Host.UseSerilog((context, config) => config
 // uses environment variables. Every one of these throws at startup when missing,
 // rather than failing obscurely on the first request that needs it.
 var connectionString = Required("ConnectionStrings:Default");
-var origin = Required("Bff:Origin").TrimEnd('/');
-var clientSecret = Required("Bff:ClientSecret");
 
 string Required(string key) =>
     builder.Configuration[key]
@@ -76,103 +73,42 @@ builder.Services
     .AddEntityFrameworkStores<FremaDbContext>()
     .AddDefaultTokenProviders();
 
-// --- IdentityServer --------------------------------------------------------
-// Embedded in this host: the application is an OIDC client of itself.
-builder.Services
-    .AddIdentityServer(options =>
-    {
-        options.IssuerUri = origin;
-        options.Events.RaiseErrorEvents = true;
-        options.Events.RaiseFailureEvents = true;
-        options.Events.RaiseInformationEvents = true;
-        options.Events.RaiseSuccessEvents = true;
-
-        options.UserInteraction.LoginUrl = "/Account/Login";
-        options.UserInteraction.LogoutUrl = "/Account/Logout";
-        options.UserInteraction.ErrorUrl = "/Account/Error";
-
-        options.LicenseKey = builder.Configuration["IdentityServer:LicenseKey"];
-    })
-    .AddInMemoryIdentityResources(IdentityServerConfig.IdentityResources)
-    .AddInMemoryApiScopes(IdentityServerConfig.ApiScopes)
-    .AddInMemoryApiResources(IdentityServerConfig.ApiResources)
-    .AddInMemoryClients(IdentityServerConfig.Clients(origin, clientSecret))
-    // Grants and consents survive a restart. Configuration stays in source; see
-    // IdentityServerConfig for why.
-    .AddOperationalStore(options =>
-    {
-        options.ConfigureDbContext = db => db.UseSqlServer(connectionString,
-            sql => sql.MigrationsAssembly(typeof(Program).Assembly.FullName));
-        options.EnableTokenCleanup = true;
-        options.RemoveConsumedTokens = true;
-    })
-    .AddAspNetIdentity<ApplicationUser>();
-
 // --- Authentication --------------------------------------------------------
-// Two cookie schemes share this host and must not be confused with one another:
-//
-//   Identity.Application  the identity-provider session, set by the login page
-//   bff                   the SPA's session, set after the OIDC round-trip
-//
-// AddIdentity above pointed the default schemes at Identity.Application; this
-// re-points them at the BFF, because the overwhelming majority of requests are SPA
-// API calls. IdentityServer names its cookie scheme explicitly, so it is unaffected.
-builder.Services
-    .AddAuthentication(options =>
-    {
-        options.DefaultScheme = "bff";
-        options.DefaultChallengeScheme = "oidc";
-        options.DefaultSignOutScheme = "oidc";
-
-        // Easy to miss, and silently fatal: AddIdentity sets DefaultSignInScheme to
-        // Identity.External. Leaving it there makes the OIDC callback deposit the session
-        // in Identity's external-login cookie instead of the BFF's, so /bff/login appears
-        // to succeed while every API call afterwards is anonymous.
-        options.DefaultSignInScheme = "bff";
-    })
-    .AddCookie("bff", options =>
-    {
-        options.Cookie.Name = "__Host-frema-bff";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SameSite = SameSiteMode.Strict;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.ExpireTimeSpan = TimeSpan.FromHours(8);
-        options.SlidingExpiration = true;
-    })
-    .AddOpenIdConnect("oidc", options =>
-    {
-        options.Authority = origin;
-        options.ClientId = IdentityServerConfig.SpaClientId;
-        options.ClientSecret = clientSecret;
-        options.ResponseType = "code";
-        options.ResponseMode = "query";
-        options.UsePkce = true;
-
-        // Tokens are kept server-side by the BFF; nothing reaches the browser.
-        options.SaveTokens = true;
-        options.GetClaimsFromUserInfoEndpoint = true;
-        options.MapInboundClaims = false;
-
-        options.Scope.Clear();
-        options.Scope.Add("openid");
-        options.Scope.Add("profile");
-        options.Scope.Add("email");
-        options.Scope.Add(IdentityServerConfig.ApiScope);
-        options.Scope.Add("offline_access");
-
-        options.TokenValidationParameters.NameClaimType = "name";
-        options.TokenValidationParameters.RoleClaimType = "role";
-    });
-
-// --- BFF -------------------------------------------------------------------
-builder.Services.AddBff(options =>
+// The session is ASP.NET Identity's own application cookie, set by the sign-in page. The SPA
+// and the API share one origin, so there is no token server and no OIDC round-trip: the
+// cookie is HttpOnly, and state-changing calls also need the X-CSRF header (see
+// AntiforgeryHeader). This replaced an embedded Duende IdentityServer + BFF, which needed a
+// paid licence in production and gave nothing a single-origin app uses.
+builder.Services.ConfigureApplicationCookie(options =>
 {
-    // Every state-changing call from the SPA must carry this header. A cross-site
-    // form post cannot set it, which is what makes the session cookie safe to use.
-    options.AntiForgeryHeaderName = "X-CSRF";
-    options.AntiForgeryHeaderValue = "1";
-    options.LicenseKey = builder.Configuration["IdentityServer:LicenseKey"];
+    options.Cookie.Name = "__Host-frema";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    options.SlidingExpiration = true;
+
+    options.LoginPath = "/Account/Login";
+    options.AccessDeniedPath = "/Account/Login";
+
+    // The SPA's fetch calls cannot follow a redirect to an HTML sign-in page; they need the
+    // status code. Only page requests are redirected.
+    options.Events.OnRedirectToLogin = context => ApiAwareRedirect(context, StatusCodes.Status401Unauthorized);
+    options.Events.OnRedirectToAccessDenied = context => ApiAwareRedirect(context, StatusCodes.Status403Forbidden);
 });
+
+static Task ApiAwareRedirect(RedirectContext<CookieAuthenticationOptions> context, int apiStatus)
+{
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        context.Response.StatusCode = apiStatus;
+    }
+    else
+    {
+        context.Response.Redirect(context.RedirectUri);
+    }
+    return Task.CompletedTask;
+}
 
 // --- Authorization ---------------------------------------------------------
 // Scoped, not singleton: the handler depends on the scoped DbContext.
@@ -185,7 +121,7 @@ builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 // Endpoints are protected unless they opt out — the inverse of the legacy default,
 // where an endpoint was open unless someone remembered to decorate it.
 builder.Services.AddAuthorizationBuilder()
-    .SetFallbackPolicy(new AuthorizationPolicyBuilder("bff")
+    .SetFallbackPolicy(new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build());
 
@@ -197,7 +133,6 @@ foreach (var permission in Permissions.All)
 {
     builder.Services.AddAuthorizationBuilder()
         .AddPolicy(permission, policy => policy
-            .AddAuthenticationSchemes("bff")
             .RequireAuthenticatedUser()
             .RequireClaim(Permissions.ClaimType, permission));
 }
@@ -281,13 +216,12 @@ app.UseSerilogRequestLogging();
 app.UseStaticFiles();
 app.UseRouting();
 
-// UseIdentityServer calls UseAuthentication internally; do not add it again.
-app.UseIdentityServer();
-app.UseBff();
+app.UseAuthentication();
+app.UseAntiforgeryHeader();
 app.UseAuthorization();
 
-app.MapBffManagementEndpoints();
 app.MapRazorPages();
+app.MapAccountEndpoints();
 app.MapHealthChecks("/health").AllowAnonymous();
 
 app.MapDocumentEndpoints();

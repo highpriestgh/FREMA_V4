@@ -1,4 +1,3 @@
-using Duende.Bff;
 using FREMA.Common;
 using FREMA.Domain;
 using FREMA.Infrastructure.Auditing;
@@ -30,7 +29,7 @@ public static class RoleEndpoints
     public static IEndpointRouteBuilder MapRoleEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/roles").WithTags("Roles");
-        group.AsBffApiEndpoint();
+        group.RequireAntiforgeryHeader();
 
         group.MapGet("/", ListAsync).RequireAuthorization(Permissions.ManageRoles);
 
@@ -50,7 +49,7 @@ public static class RoleEndpoints
         var permissions = app.MapGet("/api/permissions", ListPermissionsAsync)
             .WithTags("Roles")
             .RequireAuthorization(Permissions.ManageRoles);
-        permissions.AsBffApiEndpoint();
+        permissions.RequireAntiforgeryHeader();
 
         return app;
     }

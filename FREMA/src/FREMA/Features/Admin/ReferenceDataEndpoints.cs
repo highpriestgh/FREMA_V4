@@ -1,7 +1,7 @@
-using Duende.Bff;
 using FREMA.Common;
 using FREMA.Domain;
 using FREMA.Infrastructure.Auditing;
+using FREMA.Infrastructure.Authorization;
 using FREMA.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
@@ -66,7 +66,7 @@ public static class ReferenceDataEndpoints
         where TEntity : class, IReferenceEntity
     {
         var group = app.MapGroup($"/api/{route}").WithTags("Reference data");
-        group.AsBffApiEndpoint();
+        group.RequireAntiforgeryHeader();
 
         // Readable by any signed-in user: pickers on the upload and routing forms need it.
         group.MapGet("/", async (

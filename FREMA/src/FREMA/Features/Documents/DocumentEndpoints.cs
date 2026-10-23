@@ -1,4 +1,3 @@
-using Duende.Bff;
 using FREMA.Common;
 using FREMA.Domain;
 using FREMA.Features.Workflow;
@@ -18,10 +17,7 @@ public static class DocumentEndpoints
     public static IEndpointRouteBuilder MapDocumentEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/documents").WithTags("Documents");
-
-        // Applied as a statement, not chained: AsBffApiEndpoint returns a convention
-        // builder, so chaining it would discard the route group.
-        group.AsBffApiEndpoint();
+        group.RequireAntiforgeryHeader();
 
         group.MapGet("/", ListAsync)
             .RequireAuthorization(Permissions.ViewDocuments);
@@ -58,7 +54,7 @@ public static class DocumentEndpoints
         var inbox = app.MapGet("/api/inbox", InboxAsync)
             .WithTags("Documents")
             .RequireAuthorization(Permissions.ViewDocuments);
-        inbox.AsBffApiEndpoint();
+        inbox.RequireAntiforgeryHeader();
 
         return app;
     }

@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using Duende.Bff;
 using FREMA.Common;
 using FREMA.Domain;
 using FREMA.Features.Documents;
@@ -63,7 +62,7 @@ public static partial class SettingsEndpoints
     public static IEndpointRouteBuilder MapSettingsEndpoints(this IEndpointRouteBuilder app)
     {
         var admin = app.MapGroup("/api/settings").WithTags("Settings");
-        admin.AsBffApiEndpoint();
+        admin.RequireAntiforgeryHeader();
 
         admin.MapGet("/", GetAsync).RequireAuthorization(Permissions.ManageSettings);
         admin.MapPut("/", SaveAsync).RequireAuthorization(Permissions.ManageSettings);
@@ -72,7 +71,7 @@ public static partial class SettingsEndpoints
         admin.MapPost("/reminders/run", RunRemindersAsync).RequireAuthorization(Permissions.ManageSettings);
         admin.MapGet("/client", ClientAsync).RequireAuthorization();
 
-        // Not a BFF API endpoint: an <img> tag cannot send the antiforgery header, and the sign-in
+        // Not marked as an SPA API endpoint: an <img> tag cannot send the antiforgery header, and the sign-in
         // page shows the logo before anyone has a session.
         app.MapGet("/branding/logo", LogoAsync).WithTags("Settings").AllowAnonymous();
 

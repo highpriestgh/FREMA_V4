@@ -1,4 +1,3 @@
-using Duende.Bff;
 using FREMA.Common;
 using FREMA.Domain;
 using FREMA.Infrastructure.Auditing;
@@ -25,7 +24,7 @@ public static class FolderEndpoints
     public static IEndpointRouteBuilder MapFolderEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/folders").WithTags("Folders");
-        group.AsBffApiEndpoint();
+        group.RequireAntiforgeryHeader();
 
         group.MapGet("/", TreeAsync).RequireAuthorization(Permissions.ViewDocuments);
         group.MapPost("/", CreateAsync).RequireAuthorization(Permissions.ManageFolders);

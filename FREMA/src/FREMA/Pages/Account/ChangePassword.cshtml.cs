@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
-using Duende.IdentityServer.Services;
 using FREMA.Domain;
 using FREMA.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
@@ -24,7 +23,6 @@ namespace FREMA.Pages.Account;
 public class ChangePasswordModel(
     UserManager<ApplicationUser> userManager,
     SignInManager<ApplicationUser> signInManager,
-    IIdentityServerInteractionService interaction,
     FremaDbContext db,
     ILogger<ChangePasswordModel> logger) : PageModel
 {
@@ -152,7 +150,7 @@ public class ChangePasswordModel(
     }
 
     private string SafeReturnUrl(string? returnUrl) =>
-        !string.IsNullOrEmpty(returnUrl) && (interaction.IsValidReturnUrl(returnUrl) || Url.IsLocalUrl(returnUrl))
+        !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl)
             ? returnUrl
             : "/";
 }

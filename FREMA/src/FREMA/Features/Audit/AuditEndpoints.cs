@@ -1,4 +1,3 @@
-using Duende.Bff;
 using FREMA.Common;
 using FREMA.Domain;
 using FREMA.Infrastructure.Authorization;
@@ -32,7 +31,7 @@ public static class AuditEndpoints
     public static IEndpointRouteBuilder MapAuditEndpoints(this IEndpointRouteBuilder app)
     {
         var audit = app.MapGroup("/api/audit").WithTags("Audit");
-        audit.AsBffApiEndpoint();
+        audit.RequireAntiforgeryHeader();
 
         // Read-only by design. There is no write endpoint, and there never should be: the
         // prototype logged from the browser, so the trail recorded whatever the client chose
@@ -40,7 +39,7 @@ public static class AuditEndpoints
         audit.MapGet("/", ListAsync).RequireAuthorization(Permissions.ViewAudit);
 
         var notifications = app.MapGroup("/api/notifications").WithTags("Notifications");
-        notifications.AsBffApiEndpoint();
+        notifications.RequireAntiforgeryHeader();
 
         notifications.MapGet("/", ListNotificationsAsync).RequireAuthorization();
         notifications.MapPost("/{id:guid}/read", MarkReadAsync).RequireAuthorization();

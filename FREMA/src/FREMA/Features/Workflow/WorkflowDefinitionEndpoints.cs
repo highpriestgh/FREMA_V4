@@ -1,7 +1,7 @@
-using Duende.Bff;
 using FREMA.Common;
 using FREMA.Domain;
 using FREMA.Infrastructure.Auditing;
+using FREMA.Infrastructure.Authorization;
 using FREMA.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
@@ -71,7 +71,7 @@ public static class WorkflowDefinitionEndpoints
     public static IEndpointRouteBuilder MapWorkflowDefinitionEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/workflows").WithTags("Workflows");
-        group.AsBffApiEndpoint();
+        group.RequireAntiforgeryHeader();
 
         // Readable by anyone who routes documents: knowing which routes exist, and what
         // each step expects, is part of routing well.

@@ -10,8 +10,8 @@ namespace FREMA.Infrastructure.Persistence;
 /// <para>
 /// The legacy solution ran three — <c>FremaContext</c> and <c>ApplicationDbContext</c> in the
 /// API plus another in the STS — all pointed at the same connection string, and the API's
-/// modelled the IdentityServer operational tables it had no business owning. IdentityServer's
-/// configuration and grant stores stay in their own contexts, supplied by Duende.
+/// modelled the IdentityServer operational tables it had no business owning. There is no
+/// token server any more, so ASP.NET Identity's tables here are the whole of authentication.
 /// </para>
 /// </summary>
 public class FremaDbContext(DbContextOptions<FremaDbContext> options)

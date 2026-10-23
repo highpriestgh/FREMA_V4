@@ -1,4 +1,3 @@
-using Duende.Bff;
 using FREMA.Common;
 using FREMA.Domain;
 using FREMA.Infrastructure.Auditing;
@@ -28,11 +27,11 @@ public static class DocumentContentEndpoints
     public static IEndpointRouteBuilder MapDocumentContentEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/documents/{id:guid}/content").WithTags("Documents");
-        group.AsBffApiEndpoint();
+        group.RequireAntiforgeryHeader();
 
         group.MapPut("/", UploadAsync)
             .RequireAuthorization(Permissions.UploadDocuments)
-            .DisableAntiforgery() // BFF's X-CSRF header guards this; see comment in UploadAsync.
+            .DisableAntiforgery() // The X-CSRF header guards this; see comment in UploadAsync.
             .WithName("UploadDocumentContent");
 
         group.MapGet("/", DownloadAsync)
@@ -50,7 +49,7 @@ public static class DocumentContentEndpoints
     /// <para>
     /// <c>DisableAntiforgery</c> switches off ASP.NET Core's <em>form-token</em> check, which
     /// expects a hidden field a JSON client cannot supply. The request is still protected:
-    /// BFF requires the <c>X-CSRF</c> header on every call in this group, and a cross-site
+    /// the <c>X-CSRF</c> header is required on every write in this group, and a cross-site
     /// form post cannot set a custom header.
     /// </para>
     /// </summary>

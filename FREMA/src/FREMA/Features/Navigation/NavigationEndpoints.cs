@@ -1,5 +1,5 @@
-using Duende.Bff;
 using FREMA.Domain;
+using FREMA.Infrastructure.Authorization;
 using FREMA.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
@@ -20,7 +20,7 @@ public static class NavigationEndpoints
         var menu = app.MapGet("/api/menu", GetMenuAsync)
             .WithTags("Navigation")
             .RequireAuthorization();
-        menu.AsBffApiEndpoint();
+        menu.RequireAntiforgeryHeader();
 
         return app;
     }

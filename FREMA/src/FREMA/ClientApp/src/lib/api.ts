@@ -1,16 +1,15 @@
 /**
  * The single place the SPA talks to the server.
  *
- * There are no tokens here, and there is nothing to store. The BFF holds the session in an
- * HttpOnly cookie the browser attaches automatically, so this file never sees a credential —
- * which is the whole point of the pattern. What it must do is send the antiforgery header on
- * every call, because a cross-site form post cannot set a custom header and that is what
- * makes the cookie safe to rely on.
+ * There are no tokens here, and there is nothing to store. The session is an HttpOnly cookie
+ * the browser attaches automatically, so this file never sees a credential. What it must do
+ * is send the antiforgery header on every call, because a cross-site form post cannot set a
+ * custom header and that is what makes the cookie safe to rely on.
  */
 
 import { beginRequest, endRequest } from "./loading";
 
-/** Matches BffOptions.AntiForgeryHeaderName / HeaderValue on the server. */
+/** Matches AntiforgeryHeader.HeaderName / HeaderValue on the server. */
 const ANTIFORGERY_HEADER = "X-CSRF";
 const ANTIFORGERY_VALUE = "1";
 
@@ -86,11 +85,17 @@ async function toError(response: Response): Promise<ApiError> {
   );
 }
 
-async function request<T>(
-  method: string,
-  path: string,
-  options: { body?: unknown; query?: Query; signal?: AbortSignal; background?: boolean } = {},
-): Promise<T> {
+interface RequestOptions {
+  body?: unknown;
+  query?: Query;
+  signal?: AbortSignal;
+  /** Left out of the loading bar. */
+  background?: boolean;
+  /** A 401 is an expected answer here, not a session that ran out. */
+  quiet?: boolean;
+}
+
+async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
   // Background polling is left out of the loading bar, or it would flicker every minute.
   if (!options.background) beginRequest();
   try {
@@ -103,11 +108,7 @@ async function request<T>(
 /** Raised when the session has ended mid-use; the auth layer offers to sign in again. */
 export const SESSION_EXPIRED_EVENT = "frema:session-expired";
 
-async function send<T>(
-  method: string,
-  path: string,
-  options: { body?: unknown; query?: Query; signal?: AbortSignal },
-): Promise<T> {
+async function send<T>(method: string, path: string, options: RequestOptions): Promise<T> {
   const headers: Record<string, string> = {
     [ANTIFORGERY_HEADER]: ANTIFORGERY_VALUE,
   };
@@ -134,9 +135,9 @@ async function send<T>(
   });
 
   if (!response.ok) {
-    // A 401 from the application API means the session ran out while the page was open.
-    // /bff/user is excluded: a 401 there is the ordinary "not signed in yet" answer.
-    if (response.status === 401 && path.startsWith("/api/")) {
+    // A 401 from the application API means the session ran out while the page was open —
+    // unless the caller asked, as the first session check does, where it just means "not yet".
+    if (response.status === 401 && path.startsWith("/api/") && !options.quiet) {
       window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
     }
     throw await toError(response);
@@ -150,8 +151,12 @@ async function send<T>(
 }
 
 export const api = {
-  get: <T>(path: string, query?: Query, signal?: AbortSignal, options?: { background?: boolean }) =>
-    request<T>("GET", path, { query, signal, background: options?.background }),
+  get: <T>(
+    path: string,
+    query?: Query,
+    signal?: AbortSignal,
+    options?: { background?: boolean; quiet?: boolean },
+  ) => request<T>("GET", path, { query, signal, ...options }),
 
   post: <T>(path: string, body?: unknown, query?: Query) =>
     request<T>("POST", path, { body, query }),
@@ -169,15 +174,20 @@ export const api = {
   },
 };
 
-/** Hands the browser to the identity provider; it returns to `returnUrl` afterwards. */
+/** Sends the browser to the sign-in page; it returns to `returnUrl` afterwards. */
 export function login(returnUrl = window.location.pathname) {
-  window.location.href = `/bff/login?returnUrl=${encodeURIComponent(returnUrl)}`;
+  window.location.href = `/Account/Login?returnUrl=${encodeURIComponent(returnUrl)}`;
 }
 
 /**
- * Ends the session. The logout URL carries a session id the server issues, so it is read
- * from the claims rather than constructed here.
+ * Ends the session, then shows the sign-in page. A POST with the antiforgery header, so no
+ * other site can sign people out with a link.
  */
-export function logout(logoutUrl: string) {
-  window.location.href = logoutUrl;
+export async function logout() {
+  try {
+    await api.post("/api/account/logout");
+  } finally {
+    // Even if the call failed (say the session had already ended), the sign-in page is right.
+    window.location.href = "/Account/Login";
+  }
 }
