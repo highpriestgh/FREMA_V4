@@ -1,109 +1,720 @@
 @*
-    Layout for the identity provider's own pages only. The application UI is the SPA,
-    served separately; these pages exist because sign-in must happen on the server.
+    Layout for the server-rendered account pages (sign-in, password change). The application UI
+    is the SPA; these pages exist because a password must only ever be posted to the server.
+
+    Split screen: a navy brand panel on the left, in the same palette as the SPA's sidebar, and
+    the form on the right. The panel's illustration is decorative (aria-hidden) and uses the
+    organisation's real document-number format, so it shows what this system actually does.
+    No external fonts or scripts: the sign-in page must work on an intranet with no internet.
 *@
+@inject FREMA.Infrastructure.Settings.ISettingsService Settings
+@{
+    var organisation = await Settings.GetAsync();
+    var logoUrl = FREMA.Features.Settings.SettingsEndpoints.LogoUrl(organisation);
+    var year = DateTime.Now.Year;
+    var sampleNumber = FREMA.Features.Documents.DocumentNumberGenerator.Format(organisation, year, 148);
+    var initials = string.Concat(organisation.OrganisationName
+        .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        .Take(2)
+        .Select(word => char.ToUpperInvariant(word[0])));
+}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
     <title>@ViewData["Title"]</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <style>
         :root {
-            color-scheme: light dark;
-            --bg: #f6f7f9;
+            /* Brand panel: the SPA sidebar's navy, constant in both themes. */
+            --navy-deep: #0a1630;
+            --navy: #13264a;
+            --navy-raised: #1c3563;
+            --signal: #4f8ff0;
+            --signal-glow: rgb(79 143 240 / 0.35);
+            --on-navy: #eef2fb;
+            --on-navy-muted: #9fb0d0;
+            --approved: #2fbf86;
+
+            /* Form side. */
+            --bg: #f5f7fb;
             --surface: #ffffff;
-            --text: #1a1d21;
-            --muted: #6b7280;
-            --border: #d8dbe0;
-            --accent: #1d4ed8;
-            --error: #b42318;
+            --text: #0f172a;
+            --muted: #5b6577;
+            --line: #dfe4ec;
+            --field: #f9fafc;
+            --accent: #2563eb;
+            --accent-hover: #1d4fd6;
+            --accent-ring: rgb(37 99 235 / 0.22);
+            --error: #c4321f;
+            --error-soft: #fdf0ee;
+            --warn: #9a6100;
+            --ok: #16865b;
+
+            --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+            --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+            --font-mono: "Cascadia Mono", "SF Mono", ui-monospace, Consolas, monospace;
+            --radius: 12px;
         }
 
         @@media (prefers-color-scheme: dark) {
             :root {
-                --bg: #0f1115;
-                --surface: #181b21;
-                --text: #e7e9ee;
-                --muted: #9aa1ad;
-                --border: #2b3038;
-                --accent: #6690ff;
-                --error: #ff9a90;
+                --bg: #0a1120;
+                --surface: #101a2e;
+                --text: #e7ecf6;
+                --muted: #93a1ba;
+                --line: #23314b;
+                --field: #0c1526;
+                --accent: #5b93ff;
+                --accent-hover: #74a4ff;
+                --accent-ring: rgb(91 147 255 / 0.28);
+                --error: #ff8b7a;
+                --error-soft: #2a1513;
+                --warn: #f0b456;
+                --ok: #4cd39b;
             }
         }
 
-        * { box-sizing: border-box; }
+        *, *::before, *::after { box-sizing: border-box; }
+
+        /* Components below set display, which would otherwise override the attribute. */
+        [hidden] { display: none !important; }
+
+        html, body { height: 100%; }
 
         body {
             margin: 0;
-            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font: 15px/1.5 var(--font);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .shell {
             display: grid;
-            place-items: center;
-            background: var(--bg);
-            color: var(--text);
-            font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+            min-height: 100%;
         }
 
-        .card {
-            width: min(100% - 2rem, 24rem);
-            padding: 2rem;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
+        /* ---------- Brand panel ---------- */
+
+        .brand {
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            padding: 40px clamp(32px, 5vw, 72px);
+            color: var(--on-navy);
+            background:
+                radial-gradient(60% 50% at 85% 15%, rgb(79 143 240 / 0.28), transparent 70%),
+                radial-gradient(50% 45% at 10% 95%, rgb(47 191 134 / 0.14), transparent 70%),
+                linear-gradient(160deg, var(--navy) 0%, var(--navy-deep) 100%);
         }
 
-        .logo { display: block; max-height: 48px; max-width: 180px; margin-bottom: 1rem; }
-
-        h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.02em; }
-        .subtitle { margin: 0.25rem 0 1.75rem; color: var(--muted); font-size: 0.875rem; }
-
-        label { display: block; margin-bottom: 0.375rem; font-size: 0.875rem; font-weight: 500; }
-
-        input[type="text"], input[type="password"] {
-            width: 100%;
-            padding: 0.625rem 0.75rem;
-            margin-bottom: 1rem;
-            font: inherit;
-            color: var(--text);
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
+        /* A faint ledger grid, fading out towards the bottom. */
+        .brand::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgb(255 255 255 / 0.045) 1px, transparent 1px),
+                linear-gradient(90deg, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+            background-size: 32px 32px;
+            mask-image: linear-gradient(to bottom, #000 30%, transparent 95%);
+            pointer-events: none;
         }
 
-        input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+        .brand > * { position: relative; }
 
-        .checkbox {
+        .brand-mark {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 1.25rem;
-            font-weight: 400;
+            gap: 12px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
         }
 
-        .checkbox input { width: auto; margin: 0; }
-
-        button {
-            width: 100%;
-            padding: 0.625rem;
-            font: inherit;
-            font-weight: 500;
+        .monogram {
+            display: grid;
+            place-items: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            font: 700 15px/1 var(--font-display);
+            letter-spacing: 0.02em;
             color: #fff;
-            background: var(--accent);
-            border: 0;
+            background: linear-gradient(145deg, var(--signal), #2b62d6);
+            box-shadow: 0 6px 20px -6px var(--signal-glow), inset 0 1px 0 rgb(255 255 255 / 0.25);
+        }
+
+        .brand-mark img { max-height: 40px; max-width: 140px; border-radius: 8px; background: #fff; padding: 4px; }
+
+        .brand-copy { max-width: 30rem; }
+
+        .eyebrow {
+            margin: 0 0 18px;
+            font: 500 12px/1 var(--font-mono);
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--signal);
+        }
+
+        .brand h2 {
+            margin: 0;
+            font: 650 clamp(30px, 3.2vw, 44px)/1.08 var(--font-display);
+            letter-spacing: -0.03em;
+            text-wrap: balance;
+        }
+
+        .brand h2 span { color: var(--signal); }
+
+        .brand-copy p {
+            margin: 16px 0 0;
+            color: var(--on-navy-muted);
+            font-size: 16px;
+            max-width: 26rem;
+        }
+
+        /* Document stack */
+        .stage {
+            flex: 1;
+            display: grid;
+            place-items: center;
+            min-height: 300px;
+        }
+
+        .stack { position: relative; width: min(100%, 380px); aspect-ratio: 4 / 3.4; }
+
+        .sheet {
+            position: absolute;
+            inset: 0;
+            border-radius: 16px;
+            background: rgb(255 255 255 / 0.06);
+            border: 1px solid rgb(255 255 255 / 0.09);
+            backdrop-filter: blur(2px);
+        }
+
+        .sheet.back { transform: translate(28px, -26px) rotate(5deg); opacity: 0.55; }
+        .sheet.mid { transform: translate(14px, -13px) rotate(2.5deg); opacity: 0.8; }
+
+        .doc {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            padding: 22px 24px;
+            border-radius: 16px;
+            color: #0f172a;
+            background: #fbfcfe;
+            box-shadow: 0 30px 60px -20px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.6) inset;
+            animation: rise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+
+        .doc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+        .doc-number { font: 600 12px/1 var(--font-mono); color: #2b62d6; letter-spacing: 0.02em; }
+        .doc-type {
+            font: 600 10px/1 var(--font-mono);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #5b6577;
+            padding: 5px 8px;
+            border-radius: 999px;
+            background: #eef2f8;
+        }
+
+        .doc-title { margin: 0; font: 650 17px/1.3 var(--font-display); letter-spacing: -0.01em; }
+        .doc-lines { display: grid; gap: 7px; }
+        .doc-lines i { display: block; height: 7px; border-radius: 4px; background: #e8ecf3; }
+        .doc-lines i:nth-child(2) { width: 86%; }
+        .doc-lines i:nth-child(3) { width: 64%; }
+
+        .trail { list-style: none; margin: auto 0 0; padding: 0; display: grid; gap: 10px; }
+        .trail li { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 10px; font-size: 13px; }
+        .trail b { font-weight: 600; }
+        .trail small { color: #6b7587; font: 500 11px/1 var(--font-mono); }
+
+        .dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: var(--approved);
+            color: #fff;
+        }
+
+        .dot svg { width: 11px; height: 11px; }
+
+        .trail li.current .dot {
+            background: #2b62d6;
+            animation: pulse 2s ease-out infinite;
+            animation-delay: 1.6s;
+        }
+
+        .stamp {
+            position: absolute;
+            right: 18px;
+            top: 44%;
+            padding: 8px 14px;
+            border: 3px solid var(--approved);
             border-radius: 8px;
+            color: var(--approved);
+            font: 800 18px/1 var(--font-display);
+            letter-spacing: 0.16em;
+            transform: rotate(-12deg);
+            opacity: 0.92;
+            mix-blend-mode: multiply;
+            animation: stamp 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) 1.3s both;
+        }
+
+        .brand-foot {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 20px;
+            color: var(--on-navy-muted);
+            font-size: 13px;
+        }
+
+        .brand-foot span { display: inline-flex; align-items: center; gap: 8px; }
+        .brand-foot svg { width: 15px; height: 15px; color: var(--signal); }
+
+        @@keyframes rise {
+            from { transform: translateY(14px); opacity: 0.4; }
+            to { transform: none; opacity: 1; }
+        }
+
+        @@keyframes stamp {
+            from { transform: rotate(-12deg) scale(1.9); opacity: 0; }
+            to { transform: rotate(-12deg) scale(1); opacity: 0.92; }
+        }
+
+        @@keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgb(43 98 214 / 0.55); }
+            70% { box-shadow: 0 0 0 9px rgb(43 98 214 / 0); }
+            100% { box-shadow: 0 0 0 0 rgb(43 98 214 / 0); }
+        }
+
+        /* ---------- Form panel ---------- */
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            padding: 32px clamp(20px, 5vw, 64px);
+        }
+
+        .panel-body {
+            flex: 1;
+            display: grid;
+            place-items: center;
+        }
+
+        .form-wrap { width: 100%; max-width: 400px; min-width: 0; }
+
+        .form-head { margin-bottom: 28px; }
+
+        .form-head h1 {
+            margin: 0;
+            font: 650 30px/1.15 var(--font-display);
+            letter-spacing: -0.03em;
+        }
+
+        .form-head p { margin: 8px 0 0; color: var(--muted); }
+
+        .field { margin-bottom: 18px; }
+
+        .field label { display: block; margin-bottom: 7px; font-size: 13.5px; font-weight: 600; }
+
+        .control {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .control > svg {
+            position: absolute;
+            left: 14px;
+            width: 18px;
+            height: 18px;
+            color: var(--muted);
+            pointer-events: none;
+        }
+
+        .control input {
+            width: 100%;
+            height: 48px;
+            padding: 0 14px 0 44px;
+            font: inherit;
+            font-size: 15px;
+            color: var(--text);
+            background: var(--field);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+        }
+
+        .control input:hover { border-color: color-mix(in srgb, var(--line), var(--text) 18%); }
+
+        .control input:focus {
+            outline: none;
+            background: var(--surface);
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px var(--accent-ring);
+        }
+
+        .control input.input-validation-error { border-color: var(--error); }
+
+        .control.has-toggle input { padding-right: 48px; }
+
+        .reveal {
+            position: absolute;
+            right: 6px;
+            display: grid;
+            place-items: center;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            border: 0;
+            border-radius: 9px;
+            color: var(--muted);
+            background: transparent;
             cursor: pointer;
         }
 
-        button:hover { filter: brightness(1.08); }
+        .reveal:hover { color: var(--text); background: color-mix(in srgb, var(--line), transparent 40%); }
+        .reveal:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+        .reveal svg { width: 18px; height: 18px; }
+        .reveal .icon-hide { display: none; }
+        .reveal[aria-pressed="true"] .icon-show { display: none; }
+        .reveal[aria-pressed="true"] .icon-hide { display: block; }
 
-        .hint { margin: -0.25rem 0 1.25rem; color: var(--muted); font-size: 0.8125rem; }
+        .caps {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 8px 0 0;
+            color: var(--warn);
+            font-size: 13px;
+            font-weight: 500;
+        }
 
-        .error { margin-bottom: 1rem; color: var(--error); font-size: 0.875rem; }
-        .error ul { margin: 0; padding-left: 1.125rem; }
-        .error:empty { display: none; }
+        .caps svg { width: 15px; height: 15px; }
+
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 4px 0 24px;
+        }
+
+        /* Remember me, as a switch. */
+        .switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; user-select: none; }
+        .switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+
+        .switch .track {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            border-radius: 999px;
+            background: var(--line);
+            transition: background 0.2s;
+        }
+
+        .switch .track::after {
+            content: "";
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+            transition: transform 0.2s;
+        }
+
+        .switch input:checked + .track { background: var(--accent); }
+        .switch input:checked + .track::after { transform: translateX(16px); }
+        .switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+        .help { color: var(--muted); font-size: 13px; }
+
+        .submit {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            height: 48px;
+            font: inherit;
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+            background: var(--accent);
+            border: 0;
+            border-radius: var(--radius);
+            cursor: pointer;
+            box-shadow: 0 10px 24px -12px var(--accent), inset 0 1px 0 rgb(255 255 255 / 0.18);
+            transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+        }
+
+        .submit:hover { background: var(--accent-hover); }
+        .submit:active { transform: translateY(1px); }
+        .submit:focus-visible { outline: 3px solid var(--accent-ring); outline-offset: 2px; }
+        .submit svg { width: 18px; height: 18px; transition: transform 0.2s; }
+        .submit:hover svg { transform: translateX(3px); }
+
+        .submit .spinner {
+            display: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgb(255 255 255 / 0.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        .submit[data-busy="true"] { cursor: progress; opacity: 0.9; }
+        .submit[data-busy="true"] .spinner { display: block; }
+        .submit[data-busy="true"] svg { display: none; }
+
+        @@keyframes spin { to { transform: rotate(360deg); } }
+
+        /* The validation summary, as an alert. Hidden while there is nothing to report. */
+        .alert {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            color: var(--error);
+            background: var(--error-soft);
+            border: 1px solid color-mix(in srgb, var(--error), transparent 70%);
+            font-size: 14px;
+        }
+
+        .alert.validation-summary-valid { display: none; }
+        .alert ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+        .alert::before {
+            content: "";
+            flex: none;
+            width: 18px;
+            height: 18px;
+            margin-top: 1px;
+            background: currentColor;
+            -webkit-mask: var(--alert-icon) center / contain no-repeat;
+            mask: var(--alert-icon) center / contain no-repeat;
+            --alert-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 8v4M12 16h.01'/%3E%3C/svg%3E");
+        }
+
+        /* Password rules on the change page. */
+        .rules { list-style: none; margin: -4px 0 22px; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: 13px; color: var(--muted); }
+        .rules li { display: flex; align-items: center; gap: 7px; transition: color 0.15s; }
+        .rules li::before {
+            content: "";
+            flex: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 1.5px solid currentColor;
+            opacity: 0.6;
+        }
+        .rules li.met { color: var(--ok); }
+        .rules li.met::before {
+            opacity: 1;
+            border-color: var(--ok);
+            background: var(--ok) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5L20 7'/%3E%3C/svg%3E") center / 9px no-repeat;
+        }
+
+        .panel-foot {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 8px;
+            color: var(--muted);
+            font-size: 12.5px;
+        }
+
+        .compact-brand { display: none; }
+
+        /* ---------- Narrow screens: the brand panel becomes a slim header ---------- */
+        @@media (max-width: 900px) {
+            .shell { grid-template-columns: minmax(0, 1fr); }
+            .panel { min-width: 0; padding-inline: 20px; }
+            .panel-body { width: 100%; }
+            .brand { display: none; }
+            .compact-brand {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 32px;
+                font-weight: 600;
+            }
+            .compact-brand .monogram { width: 34px; height: 34px; font-size: 13px; border-radius: 9px; }
+            .compact-brand .compact-logo { max-height: 34px; max-width: 120px; }
+            .panel-body { place-items: start center; padding-top: 8vh; }
+        }
+
+        @@media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+        }
     </style>
 </head>
 <body>
-    @RenderBody()
+    <div class="shell">
+        <aside class="brand" aria-hidden="true">
+            <div class="brand-mark">
+                @if (logoUrl is not null)
+                {
+                    <img src="@logoUrl" alt="" />
+                }
+                else
+                {
+                    <span class="monogram">@initials</span>
+                }
+                <span>@organisation.OrganisationName</span>
+            </div>
+
+            <div class="brand-copy">
+                <p class="eyebrow">File &amp; Records Management</p>
+                <h2>Every record, <span>routed</span> and accounted for.</h2>
+                <p>Register incoming correspondence, send it for approval, and see exactly where every document is.</p>
+            </div>
+
+            <div class="stage">
+                <div class="stack">
+                    <div class="sheet back"></div>
+                    <div class="sheet mid"></div>
+                    <div class="doc">
+                        <div class="doc-head">
+                            <span class="doc-number">@sampleNumber</span>
+                            <span class="doc-type">Memo</span>
+                        </div>
+                        <p class="doc-title">Request for approval: office equipment purchase</p>
+                        <div class="doc-lines"><i></i><i></i><i></i></div>
+                        <ol class="trail">
+                            <li>
+                                <span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7" /></svg></span>
+                                <span><b>Registry</b> · received</span>
+                                <small>09:12</small>
+                            </li>
+                            <li>
+                                <span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7" /></svg></span>
+                                <span><b>Finance</b> · reviewed</span>
+                                <small>11:40</small>
+                            </li>
+                            <li class="current">
+                                <span class="dot"></span>
+                                <span><b>Director</b> · approving</span>
+                                <small>now</small>
+                            </li>
+                        </ol>
+                        <span class="stamp">APPROVED</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="brand-foot">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>Every action audited</span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 15l2 2 4-4" /></svg>Approval workflows</span>
+            </div>
+        </aside>
+
+        <main class="panel">
+            <div class="panel-body">
+                <div class="form-wrap">
+                    <div class="compact-brand">
+                        @if (logoUrl is not null)
+                        {
+                            <img src="@logoUrl" alt="" class="compact-logo" />
+                        }
+                        else
+                        {
+                            <span class="monogram">@initials</span>
+                        }
+                        <span>@organisation.OrganisationName</span>
+                    </div>
+                    @RenderBody()
+                </div>
+            </div>
+            <footer class="panel-foot">
+                <span>&copy; @year @organisation.OrganisationName</span>
+                <span>FREMA · File and Records Management</span>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        // Progressive enhancement only: the forms work without any of this.
+        (() => {
+            // Show / hide password.
+            document.querySelectorAll("[data-reveal]").forEach((button) => {
+                const input = document.getElementById(button.dataset.reveal);
+                if (!input) return;
+                button.hidden = false;
+                button.addEventListener("click", () => {
+                    const show = input.type === "password";
+                    input.type = show ? "text" : "password";
+                    button.setAttribute("aria-pressed", String(show));
+                    button.setAttribute("aria-label", show ? "Hide password" : "Show password");
+                    input.focus();
+                });
+            });
+
+            // Caps Lock warning on password fields.
+            const caps = document.querySelector("[data-caps]");
+            if (caps) {
+                const update = (event) => {
+                    if (event.getModifierState) caps.hidden = !event.getModifierState("CapsLock");
+                };
+                document.querySelectorAll('input[type="password"]').forEach((input) => {
+                    input.addEventListener("keydown", update);
+                    input.addEventListener("keyup", update);
+                    input.addEventListener("blur", () => { caps.hidden = true; });
+                });
+            }
+
+            // Live password rules, mirroring the server's Identity options.
+            const rules = document.querySelector("[data-rules]");
+            if (rules) {
+                const input = document.getElementById(rules.dataset.rules);
+                const confirm = document.getElementById(rules.dataset.confirm);
+                const tests = {
+                    length: (v) => v.length >= 12,
+                    upper: (v) => /[A-Z]/.test(v),
+                    lower: (v) => /[a-z]/.test(v),
+                    digit: (v) => /\d/.test(v),
+                    symbol: (v) => /[^A-Za-z0-9]/.test(v),
+                    match: (v) => v.length > 0 && confirm && v === confirm.value,
+                };
+                const check = () => {
+                    rules.querySelectorAll("[data-rule]").forEach((item) => {
+                        item.classList.toggle("met", tests[item.dataset.rule](input.value));
+                    });
+                };
+                input?.addEventListener("input", check);
+                confirm?.addEventListener("input", check);
+            }
+
+            // Busy state, and no double submits.
+            document.querySelectorAll("form[data-busy-form]").forEach((form) => {
+                form.addEventListener("submit", () => {
+                    const button = form.querySelector(".submit");
+                    if (!button) return;
+                    if (button.dataset.busy === "true") return;
+                    button.dataset.busy = "true";
+                    button.setAttribute("aria-busy", "true");
+                    const label = button.querySelector("[data-busy-label]");
+                    if (label) label.textContent = label.dataset.busyLabel;
+                });
+            });
+        })();
+    </script>
 </body>
 </html>
