@@ -198,6 +198,13 @@ if (args.Contains("--seed"))
     return;
 }
 
+if (args.Contains("--reset-admin-password"))
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<DatabaseSeeder>().ResetAdministratorPasswordAsync();
+    return;
+}
+
 // --- Pipeline --------------------------------------------------------------
 app.UseExceptionHandler();
 app.UseStatusCodePages();

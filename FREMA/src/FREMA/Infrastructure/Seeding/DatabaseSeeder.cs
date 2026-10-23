@@ -327,6 +327,68 @@ public sealed class DatabaseSeeder(
     }
 
     /// <summary>
+    /// Recovery for a lost administrator password: <c>dotnet run -- --reset-admin-password</c>.
+    /// <para>
+    /// Sets a new temporary password — <c>Seed:AdminPassword</c> if configured, otherwise a
+    /// generated one printed once — and requires it to be changed at the next sign-in. Also
+    /// clears any lockout and reactivates the account, since an administrator who cannot get
+    /// in is the situation this exists for. Touches that one account and nothing else.
+    /// </para>
+    /// </summary>
+    public async Task ResetAdministratorPasswordAsync(CancellationToken ct = default)
+    {
+        var email = configuration["Seed:AdminEmail"] ?? "admin@frema.local";
+
+        if (await userManager.FindByEmailAsync(email) is not { } admin)
+        {
+            logger.LogError("No administrator {Email} exists. Run with --seed to create one.", email);
+            return;
+        }
+
+        var configured = configuration["Seed:AdminPassword"];
+        var password = configured ?? GeneratePassword();
+
+        // A reset token rather than RemovePassword + AddPassword: one call, every password
+        // validator still runs, and the security stamp rotates so existing sessions end.
+        var token = await userManager.GeneratePasswordResetTokenAsync(admin);
+        var result = await userManager.ResetPasswordAsync(admin, token, password);
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException(
+                "Could not reset the administrator password: " +
+                string.Join("; ", result.Errors.Select(e => e.Description)));
+        }
+
+        admin.MustChangePassword = true;
+        admin.IsActive = true;
+        await userManager.UpdateAsync(admin);
+        await userManager.SetLockoutEndDateAsync(admin, null);
+        await userManager.ResetAccessFailedCountAsync(admin);
+
+        db.AuditLogs.Add(new AuditLog
+        {
+            Action = "user.password.reset",
+            EntityType = AuditEntityType.User,
+            EntityId = admin.Id,
+            UserName = Environment.UserName,
+            Details = """{"reason":"administrator password reset from the command line"}""",
+        });
+        await db.SaveChangesAsync(ct);
+
+        if (configured is null)
+        {
+            logger.LogWarning(
+                "Reset administrator {Email} to a generated temporary password: {Password}\n" +
+                "This is shown once and is not stored anywhere. Sign in and change it.",
+                email, password);
+        }
+        else
+        {
+            logger.LogInformation("Reset administrator {Email} to the configured password", email);
+        }
+    }
+
+    /// <summary>
     /// A 24-character password from a 70-character alphabet, drawn without modulo bias.
     /// The legacy <c>GenerateCode</c> used <c>b % 36</c> over 256 byte values, which skewed
     /// the distribution toward the first twenty-odd characters of its alphabet.

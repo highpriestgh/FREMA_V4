@@ -108,6 +108,9 @@ dotnet ef migrations add <Name> --project src/FREMA --output-dir Infrastructure/
 # Re-seed — idempotent, adds only what is missing
 dotnet run --project src/FREMA -- --seed
 
+# Lost the administrator password? Prints a new temporary one, once
+dotnet run --project src/FREMA -- --reset-admin-password
+
 # Start over
 dotnet ef database drop --project src/FREMA --force
 ```
