@@ -372,7 +372,7 @@ not thrown away and the reviewer who asked for the change is the one who sees it
       (`Features/Workflow/WorkflowEngine`, see Phase 4)
 - [x] Admin API + UI for authoring workflow definitions (`WorkflowDefinitionEndpoints`,
       `/admin/workflows`)
-- [ ] `dotnet ef migrations` drift check in CI — roadmap #22
+- [x] `dotnet ef migrations` drift check in CI — `has-pending-model-changes` in FREMA CI
 - [x] No IdentityServer tables in the app context — the old API modelled `Clients`,
       `DeviceCodes`, `PersistedGrants`, `ApiResources` and more, which belong to the STS
 - [x] Seed: roles, permissions, menus, departments, document types, origins, an admin user,
@@ -893,7 +893,7 @@ The old solution has **no tests at all**.
       BFF login flow, authorization on every endpoint, and file upload/download
 - [ ] A test asserting no endpoint is reachable without the correct permission
 - [ ] OpenTelemetry traces/metrics
-- [ ] CI: build, test, `dotnet ef migrations` drift check, npm build, `npm audit`
+- [x] CI: build, test, `dotnet ef migrations` drift check, npm build, `npm audit` (`.github/workflows/frema-ci.yml`, 2026-10-23)
 - [ ] Deployment: migrations applied as a deploy step (not at startup), HTTPS + HSTS,
       secrets from the environment
 - [ ] Delete `docs/legacy-sql/` and the old solution once cutover is verified

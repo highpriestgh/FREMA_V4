@@ -218,8 +218,10 @@ dashboard, reports, and users, roles and permissions.
 - [ ] **21. Virus scanning on upload** · `eng` · effort: S
   Already listed in plan §6; ClamAV via `nClam`, or Windows Defender on the host.
 
-- [ ] **22. CI pipeline** · `eng` · effort: S
-  Build, test, migration drift check, `npm run build`, `npm audit` (plan §9).
+- [x] **22. CI pipeline** · `eng` · done 2026-10-23
+  `.github/workflows/frema-ci.yml`: restore with NuGet audit, Release build, tests, migration
+  drift check, `npm audit`, lint and build; on push, PR and weekly. Its first run found the
+  `Infrastructure/Storage` source that `.gitignore` had kept out of git.
 
 - [ ] **31. Saved searches and smart views** · `feature` · effort: S
   M-Files lets one document appear in several virtual folders defined by metadata
@@ -292,8 +294,8 @@ dashboard, reports, and users, roles and permissions.
 | 1 | #0 | ~~Move sign-in off Duende~~ ✅ done 2026-10-23 | Removed the licence blocker |
 | 2 | #12 | ~~Update the rebuild plan~~ ✅ done 2026-10-23 | The plan should match the code before anything else changes |
 | 3 | #11 | ~~Auth hardening: rate limits, deactivated users, legacy bug review~~ ✅ done 2026-10-23 | Finished the sign-in work while it was fresh |
-| ▶ 4 | #22 | CI pipeline | Every later change is then built and checked on push |
-| 5 | #35 | Scan Agent hardware spike | Early, because its result decides how big R3 is |
+| 4 | #22 | ~~CI pipeline~~ ✅ done 2026-10-23 | Every later change is now built and checked on push |
+| ▶ 5 | #35 | Scan Agent hardware spike | Early, because its result decides how big R3 is |
 | 6 | #2 | Test harness, workflow and permission tests | The safety net before documents and files start changing |
 | 7 | #4 | Recycle bin | Removes the biggest data-loss risk, and is small |
 | 8 | #3, #10 | Version history with check-out | Together, because check-in creates a version |
