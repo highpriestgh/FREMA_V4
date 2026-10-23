@@ -1,0 +1,101 @@
+# Continuous integration for FREMA (the ASP.NET Core app under FREMA/).
+#
+# Runs on every push and pull request that touches FREMA, and weekly, because new security
+# advisories arrive without any code changing: NuGet's audit fails the restore and `npm audit`
+# fails the frontend job when a dependency becomes vulnerable.
+#
+# The Next.js prototype at the repository root is not built here; it is being retired.
+
+name: FREMA CI
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "FREMA/**"
+      - ".github/workflows/frema-ci.yml"
+  pull_request:
+    paths:
+      - "FREMA/**"
+      - ".github/workflows/frema-ci.yml"
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frema-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend — build, test, migrations
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: FREMA
+    env:
+      DOTNET_NOLOGO: "true"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # NuGet audit runs during restore, and FREMA.csproj treats warnings as errors, so a
+      # package with a known vulnerability fails the build here.
+      - name: Restore
+        run: dotnet restore FREMA.slnx
+
+      - name: Build (warnings are errors)
+        run: dotnet build FREMA.slnx --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test FREMA.slnx --no-build --configuration Release
+
+      # Fails if someone changed the domain model without adding a migration. Only the model
+      # is built; nothing connects to the placeholder connection string.
+      - name: Migrations match the model
+        env:
+          ConnectionStrings__Default: "Server=ci;Database=FREMA;Trusted_Connection=True;TrustServerCertificate=True"
+        run: |
+          dotnet tool install --global dotnet-ef --version 10.0.11
+          dotnet ef migrations has-pending-model-changes --project src/FREMA --configuration Release --no-build
+
+  frontend:
+    name: Frontend — audit, lint, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: FREMA/src/FREMA/ClientApp
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: FREMA/src/FREMA/ClientApp/package-lock.json
+
+      # The build vendors OpenCV.js (~10 MB) from docs.opencv.org. Cache it, so CI does not
+      # depend on that site being up or download it on every run.
+      - uses: actions/cache@v4
+        with:
+          path: FREMA/src/FREMA/ClientApp/public/vendor
+          key: opencv-${{ hashFiles('FREMA/src/FREMA/ClientApp/scripts/fetch-opencv.mjs') }}
+
+      - name: Install
+        run: npm ci
+
+      - name: Audit dependencies (high and critical fail the build)
+        run: npm audit --audit-level=high
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check and build
+        run: npm run build

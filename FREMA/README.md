@@ -102,6 +102,32 @@ licence in production. If single sign-on for other applications is ever needed, 
 
 ---
 
+## CI
+
+[`.github/workflows/frema-ci.yml`](../.github/workflows/frema-ci.yml) runs on every push and
+pull request that touches `FREMA/`, and every Monday, since new security advisories arrive
+without code changing. It fails when:
+
+| Check | Fails when |
+|---|---|
+| `dotnet restore` | a NuGet package has a known vulnerability (warnings are errors) |
+| `dotnet build` | there is any compiler warning |
+| `dotnet test` | a test fails |
+| `dotnet ef migrations has-pending-model-changes` | the domain model changed without a migration |
+| `npm audit --audit-level=high` | a frontend package has a high or critical advisory |
+| `npm run lint`, `npm run build` | lint errors, type errors, or a broken build |
+
+To run the same checks locally before pushing:
+
+```bash
+cd FREMA
+dotnet build FREMA.slnx -c Release && dotnet test FREMA.slnx -c Release --no-build
+dotnet ef migrations has-pending-model-changes --project src/FREMA
+cd src/FREMA/ClientApp && npm audit --audit-level=high && npm run lint && npm run build
+```
+
+---
+
 ## Common tasks
 
 ```bash
